@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edge — Match Analytics</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--mute:#6b7280;--line:#e5e7eb;--h:#2563eb;--d:#9ca3af;--a:#e11d48;--good:#059669;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--ink:#e8eaed;--mute:#98a0ab;--line:#262c36;--h:#60a5fa;--d:#6b7280;--a:#fb7185;--good:#34d399;--warn:#fbbf24}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif;padding-bottom:40px}
+header{position:sticky;top:0;background:var(--bg);padding:12px 14px;border-bottom:1px solid var(--line);z-index:5}
+h1{font-size:18px;margin:0 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button.primary{background:var(--h);border-color:var(--h);color:#fff}
+.tabs button.on{border-color:var(--h);color:var(--h);font-weight:600}
+main{padding:12px 14px;max-width:760px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.teams{display:flex;justify-content:space-between;font-weight:600;gap:8px}
+.when{color:var(--mute);font-size:12px;margin-bottom:6px}
+.bar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:6px 0 2px;font-size:11px;color:#fff}
+.bar span{display:flex;align-items:center;justify-content:center;min-width:0}
+.lab{font-size:11px;color:var(--mute);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+td,th{padding:4px 2px;text-align:center}th{color:var(--mute);font-weight:500}td:first-child,th:first-child{text-align:left}
+.pos{color:var(--good);font-weight:600}.neg{color:var(--mute)}
+.badge{display:inline-block;background:var(--good);color:#fff;border-radius:99px;font-size:11px;padding:1px 8px;margin-left:6px}
+.note{font-size:12px;color:var(--warn)}
+.msg{padding:14px;color:var(--mute);text-align:center}
+.metrics{font-size:12px;color:var(--mute)}
+.disc{font-size:11px;color:var(--mute);margin-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Edge · Match Analytics</h1>
+  <div class="row">
+    <select id="league">{% for k,v in leagues.items() %}<option value="{{k}}">{{v.name}}</option>{% endfor %}</select>
+    <span class="tabs row"><button id="t-up" class="on">Upcoming</button><button id="t-rt">Ratings</button></span>
+    <button id="refresh">Retrain</button>
+  </div>
+</header>
+<main>
+  <div id="metrics" class="metrics"></div>
+  <div id="view"><div class="msg">Loading…</div></div>
+  <p class="disc">Probabilities are statistical estimates from a simple Elo + form model. They are not guarantees, and "positive EV" can simply mean the model is wrong. Bet only what you can afford to lose. 18+.</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct=x=>(x*100).toFixed(0)+'%';
+let tab='up';
+
+function bar(p){return `<div class="bar"><span style="width:${p[0]*100}%;background:var(--h)">${pct(p[0])}</span><span style="width:${p[1]*100}%;background:var(--d)">${pct(p[1])}</span><span style="width:${p[2]*100}%;background:var(--a)">${pct(p[2])}</span></div>`}
+
+function card(e){
+  const m=e.model, d=new Date(e.commence);
+  const bestEv=m?Math.max(...m.ev):null, bi=m?m.ev.indexOf(bestEv):-1;
+  const name=['Home','Draw','Away'];
+  let h=`<div class="card"><div class="when">${d.toLocaleString([], {weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · ${e.books} bookmakers</div>
+  <div class="teams"><span>${esc(e.home)}</span><span style="text-align:right">${esc(e.away)}</span></div>`;
+  if(m){
+    h+=`<div class="lab">Model${m.low_data?' <span class="note">· limited data for a team</span>':''}</div>${bar(m.probs)}`;
+  }else{
+    h+=`<div class="lab note">No model prediction (team not recognised or model not trained)</div>`;
+  }
+  h+=`<div class="lab">Market (margin removed)</div>${bar(e.market)}`;
+  h+=`<table><tr><th></th><th>Home</th><th>Draw</th><th>Away</th></tr>
+  <tr><td>Best odds</td>${e.best.map(b=>`<td title="${esc(b.book)}">${b.odds.toFixed(2)}</td>`).join('')}</tr>`;
+  if(m){
+    h+=`<tr><td>Model EV</td>${m.ev.map(v=>`<td class="${v>0?'pos':'neg'}">${v>0?'+':''}${(v*100).toFixed(1)}%</td>`).join('')}</tr>`;
+  }
+  h+=`</table>`;
+  if(m && bestEv>0.03) h+=`<div class="lab"><b>${name[bi]}</b> shows the largest model edge<span class="badge">+${(bestEv*100).toFixed(1)}% EV</span></div>`;
+  return h+`</div>`;
+}
+
+async function load(force=false){
+  const lg=$('#league').value, v=$('#view');
+  v.innerHTML='<div class="msg">Loading…</div>';
+  if(tab==='rt'){
+    const r=await (await fetch('/api/ratings?league='+lg)).json();
+    v.innerHTML=r.ratings.length?`<div class="card"><table><tr><th>#</th><th>Team</th><th>Elo</th></tr>${r.ratings.map((t,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${esc(t.team)}</td><td>${t.elo}</td></tr>`).join('')}</table></div>`:'<div class="msg">No ratings yet. Tap Retrain.</div>';
+    return;
+  }
+  const res=await fetch('/api/predictions?league='+lg+(force?'&force=1':''));
+  const j=await res.json();
+  if(j.metrics){const m=j.metrics;$('#metrics').textContent=`Backtest: model log-loss ${m.log_loss}${m.market_log_loss?` vs market ${m.market_log_loss}`:''} · accuracy ${pct(m.accuracy)} · API credits left: ${j.meta?.remaining??'?'}`}
+  else $('#metrics').textContent='';
+  if(!res.ok){v.innerHTML=`<div class="msg">${esc(j.error||'Error')}${j.trained===false?'<br>Model not trained yet. Tap Retrain.':''}</div>`;return}
+  v.innerHTML=j.events.length?j.events.map(card).join(''):'<div class="msg">No upcoming matches with odds right now.</div>';
+}
+
+async function retrain(){
+  const b=$('#refresh');b.disabled=true;
+  const r=await fetch('/api/refresh?league='+$('#league').value,{method:'POST',headers:{'X-Admin-Token':localStorage.getItem('adm')||''}});
+  if(r.status===401){const t=prompt('Admin token');if(t){localStorage.setItem('adm',t)}b.disabled=false;return}
+  const poll=setInterval(async()=>{
+    const s=await (await fetch('/api/status')).json();
+    b.textContent=s.running?s.message:'Retrain';
+    if(!s.running){clearInterval(poll);b.disabled=false;b.textContent='Retrain';load()}
+  },1500);
+}
+
+$('#league').onchange=()=>load();
+$('#refresh').onclick=retrain;
+$('#t-up').onclick=()=>{tab='up';$('#t-up').classList.add('on');$('#t-rt').classList.remove('on');load()};
+$('#t-rt').onclick=()=>{tab='rt';$('#t-rt').classList.add('on');$('#t-up').classList.remove('on');load()};
+load();
+</script>
+</body>
+</html>
