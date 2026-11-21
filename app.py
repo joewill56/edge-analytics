@@ -8,7 +8,8 @@ import db
 import model
 import odds_client
 import pipeline
-from config import ADMIN_TOKEN, LEAGUES
+from picks import recommend
+from config import ADMIN_TOKEN, BLEND_WEIGHT, LEAGUES
 from features import implied_probs
 
 logging.basicConfig(level=logging.INFO)
@@ -42,11 +43,15 @@ def build_predictions(sport_key: str, force=False):
             "books": len(ev["books"]), "market": [float(p) for p in market], "best": best, "model": None,
         }
         if pred:
-            p = pred["probs"]
+            raw = pred["probs"]
+            # Blend model with bookmaker consensus; EV and picks use the blend
+            p = [BLEND_WEIGHT * raw[i] + (1 - BLEND_WEIGHT) * float(market[i]) for i in range(3)]
             item["model"] = {
-                **pred,
+                **pred, "blend": p,
                 "ev": [round(p[i] * best[i]["odds"] - 1, 4) for i in range(3)],  # expected value per unit staked
             }
+            item["pick"] = recommend(p, pred["low_data"])
+            item["pick"]["market_prob"] = round(float(sum(market[i] for i in {"1": [0], "X": [1], "2": [2], "1X": [0, 1], "X2": [1, 2], "12": [0, 2]}.get(item["pick"]["code"], []))), 4) if item["pick"]["code"] != "SKIP" else None
         out.append(item)
     return out, meta
 
