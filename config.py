@@ -16,6 +16,8 @@ ODDS_REGIONS = os.getenv("ODDS_REGIONS", "uk,eu")
 ODDS_CACHE_TTL = int(os.getenv("ODDS_CACHE_TTL", "900"))  # seconds; protects free quota
 HIST_SEASONS = int(os.getenv("HIST_SEASONS", "5"))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+# Optional Postgres URL (e.g. free Neon) so the track record survives restarts
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 # Pick rules (see picks.py)
 SINGLE_MIN = float(os.getenv("SINGLE_MIN", "0.55"))  # model must give a team/draw at least this to pick it alone
@@ -24,6 +26,10 @@ DC_MIN = float(os.getenv("DC_MIN", "0.65"))          # best double chance must r
 # Share of the model in the final probability (rest comes from bookmaker consensus).
 # 0 = market only, 1 = model only. Lower = safer while the model is weaker than the market.
 BLEND_WEIGHT = float(os.getenv("BLEND_WEIGHT", "0.35"))
+
+# Extra goal markets: "safest options" band (model probability)
+MARKET_MIN = float(os.getenv("MARKET_MIN", "0.70"))
+MARKET_MAX = float(os.getenv("MARKET_MAX", "0.85"))  # above this the fair odds are too short to be worth listing
 
 # The Odds API sport key -> football-data.co.uk league code
 LEAGUES = {

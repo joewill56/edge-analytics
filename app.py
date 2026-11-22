@@ -2,12 +2,14 @@ import logging
 import threading
 
 import numpy as np
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request, send_from_directory
 
 import db
+import markets
 import model
 import odds_client
 import pipeline
+import track
 from picks import recommend
 from config import ADMIN_TOKEN, BLEND_WEIGHT, LEAGUES
 from features import implied_probs
@@ -29,7 +31,7 @@ def build_predictions(sport_key: str, force=False):
     code = LEAGUES[sport_key]["code"]
     events, meta = odds_client.get_odds(sport_key, force=force)
     teams = model.known_teams(code)
-    out = []
+    out, to_save = [], []
     for ev in sorted(events, key=lambda e: e["commence"]):
         odds = np.array([b["odds"] for b in ev["books"]], dtype=float)
         market = np.mean([implied_probs(*o) for o in odds], axis=0)  # de-vigged consensus
@@ -50,15 +52,35 @@ def build_predictions(sport_key: str, force=False):
                 **pred, "blend": p,
                 "ev": [round(p[i] * best[i]["odds"] - 1, 4) for i in range(3)],  # expected value per unit staked
             }
+            g = item["model"].pop("goal", None)
+            if g:  # every goal market from one scoreline distribution anchored to the blended 1X2
+                item["markets"] = markets.build(g["lh"], g["la"], g["rho"], p)
             item["pick"] = recommend(p, pred["low_data"])
             item["pick"]["market_prob"] = round(float(sum(market[i] for i in {"1": [0], "X": [1], "2": [2], "1X": [0, 1], "X2": [1, 2], "12": [0, 2]}.get(item["pick"]["code"], []))), 4) if item["pick"]["code"] != "SKIP" else None
         out.append(item)
+        to_save.append((item, sport_key, code, h, a))
+    try:
+        track.record_picks(to_save)
+    except Exception:
+        app.logger.exception("could not record picks")  # never break the page over tracking
     return out, meta
 
 
 @app.get("/")
 def index():
     return render_template("index.html", leagues=LEAGUES)
+
+
+@app.get("/sw.js")
+def service_worker():  # served from the root so it controls the whole site
+    r = make_response(send_from_directory(app.static_folder, "sw.js", mimetype="application/javascript"))
+    r.headers["Cache-Control"] = "no-cache"
+    return r
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
 
 
 @app.get("/api/predictions")
@@ -75,6 +97,16 @@ def api_predictions():
         app.logger.exception("prediction failure")
         return jsonify(error=f"Unexpected error: {exc}"), 500
     return jsonify(events=events, meta=meta, trained=model.is_trained(code), metrics=model.metrics(code))
+
+
+@app.get("/api/track")
+def api_track():
+    try:
+        track.settle_async()  # checks real results in the background (at most hourly per league)
+        return jsonify(track.summary())
+    except Exception as exc:
+        app.logger.exception("track failure")
+        return jsonify(error=f"Track record unavailable: {exc}"), 500
 
 
 @app.get("/api/ratings")
