@@ -68,6 +68,7 @@ def build_training_frame(df: pd.DataFrame):
                 **state.features(r.home, r.away),
                 "y": RESULT_MAP[r.result], "date": r.date,
                 "b365h": r.b365h, "b365d": r.b365d, "b365a": r.b365a,
+                "hg": int(r.hg), "ag": int(r.ag), "bo": r.b365o25, "bu": r.b365u25,
             })
         state.update(r.home, r.away, int(r.hg), int(r.ag))
     return pd.DataFrame(rows), state
