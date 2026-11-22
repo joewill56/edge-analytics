@@ -35,7 +35,8 @@ def fetch_season(code: str, season: str) -> pd.DataFrame:
         "ag": pd.to_numeric(raw["FTAG"], errors="coerce"),
         "result": raw["FTR"].str.strip(),
     })
-    for tgt, cands in {"b365h": ["B365H", "AvgH"], "b365d": ["B365D", "AvgD"], "b365a": ["B365A", "AvgA"]}.items():
+    for tgt, cands in {"b365h": ["B365H", "AvgH"], "b365d": ["B365D", "AvgD"], "b365a": ["B365A", "AvgA"],
+                       "b365o25": ["B365>2.5", "Avg>2.5"], "b365u25": ["B365<2.5", "Avg<2.5"]}.items():
         col = next((c for c in cands if c in raw.columns), None)
         out[tgt] = pd.to_numeric(raw[col], errors="coerce") if col else float("nan")
     out = out.dropna(subset=["date", "hg", "ag"])

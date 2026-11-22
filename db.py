@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS matches (
     league TEXT NOT NULL, season TEXT, date TEXT NOT NULL,
     home TEXT NOT NULL, away TEXT NOT NULL,
     hg INTEGER NOT NULL, ag INTEGER NOT NULL, result TEXT NOT NULL,
-    b365h REAL, b365d REAL, b365a REAL,
+    b365h REAL, b365d REAL, b365a REAL, b365o25 REAL, b365u25 REAL,
     PRIMARY KEY (league, date, home, away)
 );
 CREATE TABLE IF NOT EXISTS odds_snapshots (
@@ -35,12 +35,16 @@ def conn():
 def init_db():
     with conn() as c:
         c.executescript(SCHEMA)
+        have = {r[1] for r in c.execute("PRAGMA table_info(matches)")}
+        for col in ("b365o25", "b365u25"):  # migrate databases created before over/under odds were stored
+            if col not in have:
+                c.execute(f"ALTER TABLE matches ADD COLUMN {col} REAL")
 
 
 def upsert_matches(df: pd.DataFrame) -> int:
     if df.empty:
         return 0
-    cols = ["league", "season", "date", "home", "away", "hg", "ag", "result", "b365h", "b365d", "b365a"]
+    cols = ["league", "season", "date", "home", "away", "hg", "ag", "result", "b365h", "b365d", "b365a", "b365o25", "b365u25"]
     rows = [tuple(None if pd.isna(v) else v for v in r) for r in df[cols].itertuples(index=False)]
     with conn() as c:
         c.executemany(
