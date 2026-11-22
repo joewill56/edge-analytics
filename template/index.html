@@ -16,7 +16,7 @@
 @media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--ink:#e8eaed;--mute:#98a0ab;--line:#262c36;--h:#60a5fa;--d:#6b7280;--a:#fb7185;--good:#34d399;--warn:#fbbf24}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif;padding-bottom:40px}
 header{position:sticky;top:0;background:var(--bg);padding:12px 14px;border-bottom:1px solid var(--line);z-index:5}
-h1{font-size:18px;margin:0 0 8px}
+h1{margin:0 0 8px;line-height:0}.logo{height:34px;width:auto;max-width:100%}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 select,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 button.primary{background:var(--h);border-color:var(--h);color:#fff}
@@ -47,7 +47,7 @@ details table td:nth-child(2),details table td:nth-child(3){white-space:nowrap}
 </head>
 <body>
 <header>
-  <h1>Edge · Match Analytics</h1>
+  <h1><img src="/static/logo-wide.png" alt="Edge Analytics" class="logo"></h1>
   <div class="row">
     <select id="league">{% for k,v in leagues.items() %}<option value="{{k}}">{{v.name}}</option>{% endfor %}</select>
     <span class="tabs row"><button id="t-up" class="on">Upcoming</button><button id="t-rt">Ratings</button><button id="t-tr">Track record</button></span>
