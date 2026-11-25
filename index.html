@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edge — Match Analytics</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e1116">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Edge">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="icon" href="/static/icon-192.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--mute:#6b7280;--line:#e5e7eb;--h:#2563eb;--d:#9ca3af;--a:#e11d48;--good:#059669;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--ink:#e8eaed;--mute:#98a0ab;--line:#262c36;--h:#60a5fa;--d:#6b7280;--a:#fb7185;--good:#34d399;--warn:#fbbf24}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif;padding-bottom:40px}
+header{position:sticky;top:0;background:var(--bg);padding:12px 14px;border-bottom:1px solid var(--line);z-index:5}
+h1{margin:0 0 8px;line-height:0}.logo{height:34px;width:auto;max-width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button.primary{background:var(--h);border-color:var(--h);color:#fff}
+.tabs button.on{border-color:var(--h);color:var(--h);font-weight:600}
+main{padding:12px 14px;max-width:760px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.teams{display:flex;justify-content:space-between;font-weight:600;gap:8px}
+.when{color:var(--mute);font-size:12px;margin-bottom:6px}
+.bar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:6px 0 2px;font-size:11px;color:#fff}
+.bar span{display:flex;align-items:center;justify-content:center;min-width:0}
+.lab{font-size:11px;color:var(--mute);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+td,th{padding:4px 2px;text-align:center}th{color:var(--mute);font-weight:500}td:first-child,th:first-child{text-align:left}
+.pos{color:var(--good);font-weight:600}.neg{color:var(--mute)}
+.badge{display:inline-block;background:var(--good);color:#fff;border-radius:99px;font-size:11px;padding:1px 8px;margin-left:6px}
+.note{font-size:12px;color:var(--warn)}
+.msg{padding:14px;color:var(--mute);text-align:center}
+.metrics{font-size:12px;color:var(--mute)}
+.pick{border-radius:10px;padding:10px 12px;margin:8px 0;border:1px solid var(--line)}
+.pick b.big{font-size:20px}.pick.high{border-color:var(--good)}.pick.medium{border-color:var(--h)}.pick.none{border-color:var(--warn)}
+.pick small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.chip{display:inline-block;border:1px solid var(--good);color:var(--ink);border-radius:99px;padding:2px 9px;margin:4px 4px 0 0;font-size:12px}
+details{margin-top:8px;font-size:13px}summary{cursor:pointer;color:var(--h);font-weight:600}
+details h4{margin:10px 0 2px;font-size:12px;color:var(--mute);font-weight:600;text-transform:uppercase}
+details table td:nth-child(2),details table td:nth-child(3){white-space:nowrap}
+.locked .lockbox{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:10px;text-align:center}
+.lockbox small{display:block;color:var(--mute);margin:4px 0 10px}.lockbox .row{justify-content:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.modal[hidden]{display:none}
+#sheet{background:var(--card);width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px 22px}
+#sheet h3{margin:0 0 4px}#sheet button,#sheet input{margin-top:8px}
+#sheet input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0;flex:1}
+.plan{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+.plan.best{border-color:var(--good)}.price{font-weight:700;text-align:right}.price small{display:block;color:var(--mute);font-weight:400;font-size:11px}
+.adbox{height:140px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#e11d48);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;margin:10px 0}
+a.btn{display:block;text-align:center;text-decoration:none;background:var(--h);color:#fff;border-radius:8px;padding:10px;margin-top:10px}
+#badge{font-size:12px;color:var(--good);font-weight:600}
+[dir=rtl] .teams,[dir=rtl] td,[dir=rtl] th{text-align:right}[dir=rtl] td:not(:first-child),[dir=rtl] th:not(:first-child){text-align:center}
+.adslot{text-align:center;margin:10px 0}.adslot .lab{margin:0 0 2px}
+header input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.disc{font-size:11px;color:var(--mute);margin-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1><img src="/static/logo-wide.png" alt="Edge Analytics" class="logo"></h1>
+  <div class="row">
+    <select id="league">{% for k,v in leagues.items() %}<option value="{{k}}">{{v.name}}</option>{% endfor %}</select>
+    <span class="tabs row"><button id="t-up" class="on" data-i18n="up">Upcoming</button><button id="t-rt" data-i18n="rt">Ratings</button><button id="t-tr" data-i18n="tr">Track record</button></span>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button id="goadfree" class="primary" data-i18n="adfree">Go ad-free</button><span id="badge"></span><span id="quota" class="lab"></span>
+    <select id="lang" aria-label="Language"></select>
+    <button id="refresh" data-i18n="retrain" hidden>Retrain</button><button id="install" class="primary" data-i18n="install" hidden>Install app</button>
+  </div>
+  <div class="row" style="margin-top:8px"><input id="q" type="search" data-i18n-ph="search_ph" autocomplete="off" style="flex:1;min-width:0"></div>
+</header>
+<main>
+  <div id="metrics" class="metrics"></div>
+  <div id="view"><div class="msg">Loading…</div></div>
+  <p class="disc" data-i18n="disc"></p>
+</main>
+<div id="modal" class="modal" hidden><div id="sheet"></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct=x=>(x*100).toFixed(0)+'%';
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+let tab='up';
+const S={lang:'en',cur:'NGN',pricing:null,j:null,ok:true};
+
+/* ---------------- translations (missing keys fall back to English) ---------------- */
+const LANGS={en:'English',fr:'Français',es:'Español',pt:'Português',de:'Deutsch',ar:'العربية'};
+const I18N={
+en:{up:'Upcoming',rt:'Ratings',tr:'Track record',retrain:'Retrain',install:'Install app',loading:'Loading…',home:'Home',draw:'Draw',away:'Away',model:'Model',blended:'Final estimate (model + market)',market:'Market (margin removed)',bestodds:'Best odds',ev:'Model EV',xg:'Expected goals',topmk:'Other markets the model rates 70%+',nomk:'No extra market clears 70% for this match.',allmk:'All markets',scores:'Most likely scores',minodds:'Min odds',skip:'Skip',skipwhy:'Too uncertain: best safe option only {p}. No pick.',conf_high:'Strong confidence',conf_med:'Moderate confidence',worth:'only worth taking at odds of {o} or higher',pk_1:'Home win',pk_X:'Draw',pk_2:'Away win',pk_1X:'Home or Draw',pk_X2:'Away or Draw',pk_12:'Home or Away (no draw)',g_goals:'Goals (GG, Over/Under)',g_double:'Double chance & Draw No Bet',g_handicap:'Handicap',g_team:'Team goals',g_combo:'Combos',edgeline:'{n} shows the largest model edge',lowdata:'limited data for a team',nomodel:'No model prediction (team not recognised or model not trained)',locked_t:'Prediction locked',locked_d:'Watch a short ad to see this match, or go ad-free.',watch:'Watch ad to unlock',adfree:'Go ad-free',ad_title:'Advertisement',ad_wait:'Unlocks in {s}s',ad_done:'Unlock prediction',ad_close:'Close',ad_demo:'(Demo ad. Real ads will appear here.)',pw_title:'Go ad-free',pw_sub:'No ads. Every prediction unlocked.',week:'Weekly',month:'Monthly',year:'Yearly',per_week:'/ week',per_month:'/ month',per_year:'/ year',best:'Best value',save:'Save {p}%',pay_soon:'Online payment is coming soon.',contact:'Contact us to subscribe',have_code:'Have a premium code?',code_ph:'Paste code',apply:'Apply',code_bad:'That code is not valid or has expired.',cur:'Currency',prem_badge:'Ad-free until {d}',approx_note:'Converted prices are approximate. The final amount is shown at checkout.',nomatches:'No upcoming matches with odds right now.',books:'bookmakers',disc:'Probabilities are statistical estimates, not guarantees. Bet only what you can afford to lose. 18+.',unlock_err:'Could not unlock. Please try again.',watch:'Unlock this match',locked_d:'Free users can unlock a limited number of matches each day. Premium unlocks them all.',free_left:'{n} free unlocks left today',limit_hit:'You have used today’s free unlocks. Go premium to see every match.',search_ph:'Search a team or match…',search_none:'Match not available. We only list matches from the leagues we cover that have published odds.',search_none2:'No leagues are loaded yet. Open a league first, then search.',two_weeks:'2 weeks',per_two_weeks:'/ 2 weeks',tier_basic:'All matches · no ads · small analysis',tier_full:'All matches · no ads · complete analysis',up_free:'Go premium for expected goals, extra markets and value checks.',up_basic:'Upgrade to a monthly plan for the complete analysis.'},
+fr:{up:'À venir',rt:'Classement',tr:'Historique',retrain:'Réentraîner',install:"Installer l'app",loading:'Chargement…',home:'Domicile',draw:'Nul',away:'Extérieur',model:'Modèle',blended:'Estimation finale (modèle + marché)',market:'Marché (marge retirée)',bestodds:'Meilleures cotes',ev:'EV du modèle',xg:'Buts attendus',topmk:'Autres marchés notés 70 %+ par le modèle',nomk:'Aucun autre marché ne dépasse 70 % pour ce match.',allmk:'Tous les marchés',scores:'Scores les plus probables',minodds:'Cote min.',skip:'Passer',skipwhy:'Trop incertain : la meilleure option sûre n’est que de {p}. Aucun pronostic.',conf_high:'Confiance élevée',conf_med:'Confiance modérée',worth:'à jouer seulement à une cote de {o} ou plus',pk_1:'Victoire domicile',pk_X:'Match nul',pk_2:'Victoire extérieur',pk_1X:'Domicile ou nul',pk_X2:'Extérieur ou nul',pk_12:'Domicile ou extérieur (sans nul)',g_goals:'Buts (BTTS, Plus/Moins)',g_double:'Double chance & Remboursé si nul',g_handicap:'Handicap',g_team:'Buts par équipe',g_combo:'Combinés',edgeline:'{n} présente le plus grand avantage du modèle',lowdata:'peu de données sur une équipe',nomodel:'Aucune prévision (équipe non reconnue ou modèle non entraîné)',locked_t:'Pronostic verrouillé',locked_d:'Regardez une courte pub pour voir ce match, ou passez sans pub.',watch:'Voir une pub pour débloquer',adfree:'Sans publicité',ad_title:'Publicité',ad_wait:'Déblocage dans {s}s',ad_done:'Débloquer le pronostic',ad_close:'Fermer',ad_demo:'(Pub de démonstration. Les vraies pubs apparaîtront ici.)',pw_title:'Sans publicité',pw_sub:'Aucune pub. Tous les pronostics débloqués.',week:'Hebdomadaire',month:'Mensuel',year:'Annuel',per_week:'/ semaine',per_month:'/ mois',per_year:'/ an',best:'Meilleure offre',save:'Économisez {p} %',pay_soon:'Le paiement en ligne arrive bientôt.',contact:'Nous contacter pour s’abonner',have_code:'Vous avez un code premium ?',code_ph:'Collez le code',apply:'Appliquer',code_bad:'Ce code est invalide ou expiré.',cur:'Devise',prem_badge:'Sans pub jusqu’au {d}',approx_note:'Les prix convertis sont approximatifs. Le montant final s’affiche au paiement.',nomatches:'Aucun match à venir avec des cotes pour le moment.',books:'bookmakers',disc:'Les probabilités sont des estimations statistiques, pas des garanties. Ne misez que ce que vous pouvez perdre. 18+.',unlock_err:'Déblocage impossible. Réessayez.',watch:'Débloquer ce match',locked_d:'Les utilisateurs gratuits peuvent débloquer un nombre limité de matchs par jour. Premium les débloque tous.',free_left:'{n} déblocages gratuits restants aujourd’hui',limit_hit:'Vous avez utilisé les déblocages gratuits du jour. Passez Premium pour voir tous les matchs.',search_ph:'Rechercher une équipe ou un match…',search_none:'Match indisponible. Nous listons seulement les matchs des ligues couvertes avec des cotes publiées.',search_none2:'Aucune ligue n’est chargée. Ouvrez d’abord une ligue, puis cherchez.',two_weeks:'2 semaines',per_two_weeks:'/ 2 semaines',tier_basic:'Tous les matchs · sans pub · petite analyse',tier_full:'Tous les matchs · sans pub · analyse complète',up_free:'Passez Premium pour les buts attendus, plus de marchés et les valeurs.',up_basic:'Passez à un forfait mensuel pour l’analyse complète.'},
+es:{up:'Próximos',rt:'Ranking',tr:'Historial',retrain:'Reentrenar',install:'Instalar app',loading:'Cargando…',home:'Local',draw:'Empate',away:'Visitante',model:'Modelo',blended:'Estimación final (modelo + mercado)',market:'Mercado (sin margen)',bestodds:'Mejores cuotas',ev:'EV del modelo',xg:'Goles esperados',topmk:'Otros mercados que el modelo valora al 70%+',nomk:'Ningún otro mercado supera el 70% en este partido.',allmk:'Todos los mercados',scores:'Resultados más probables',minodds:'Cuota mín.',skip:'Omitir',skipwhy:'Demasiado incierto: la mejor opción segura es solo {p}. Sin pronóstico.',conf_high:'Confianza alta',conf_med:'Confianza media',worth:'solo vale la pena con cuota de {o} o más',pk_1:'Gana local',pk_X:'Empate',pk_2:'Gana visitante',pk_1X:'Local o empate',pk_X2:'Visitante o empate',pk_12:'Local o visitante (sin empate)',g_goals:'Goles (Ambos marcan, Más/Menos)',g_double:'Doble oportunidad y Empate no apuesta',g_handicap:'Hándicap',g_team:'Goles por equipo',g_combo:'Combinadas',edgeline:'{n} muestra la mayor ventaja del modelo',lowdata:'pocos datos de un equipo',nomodel:'Sin predicción (equipo no reconocido o modelo sin entrenar)',locked_t:'Pronóstico bloqueado',locked_d:'Mira un anuncio corto para ver este partido, o ve sin anuncios.',watch:'Ver anuncio para desbloquear',adfree:'Sin anuncios',ad_title:'Anuncio',ad_wait:'Se desbloquea en {s}s',ad_done:'Desbloquear pronóstico',ad_close:'Cerrar',ad_demo:'(Anuncio de prueba. Aquí aparecerán los anuncios reales.)',pw_title:'Sin anuncios',pw_sub:'Sin anuncios. Todos los pronósticos desbloqueados.',week:'Semanal',month:'Mensual',year:'Anual',per_week:'/ semana',per_month:'/ mes',per_year:'/ año',best:'Mejor valor',save:'Ahorra {p}%',pay_soon:'El pago en línea llegará pronto.',contact:'Contáctanos para suscribirte',have_code:'¿Tienes un código premium?',code_ph:'Pega el código',apply:'Aplicar',code_bad:'Ese código no es válido o ha caducado.',cur:'Moneda',prem_badge:'Sin anuncios hasta {d}',approx_note:'Los precios convertidos son aproximados. El importe final se muestra al pagar.',nomatches:'No hay partidos próximos con cuotas ahora mismo.',books:'casas de apuestas',disc:'Las probabilidades son estimaciones estadísticas, no garantías. Apuesta solo lo que puedas perder. +18.',unlock_err:'No se pudo desbloquear. Inténtalo de nuevo.',watch:'Desbloquear este partido',locked_d:'Los usuarios gratuitos pueden desbloquear un número limitado de partidos al día. Premium los desbloquea todos.',free_left:'{n} desbloqueos gratis restantes hoy',limit_hit:'Has usado los desbloqueos gratis de hoy. Hazte Premium para ver todos los partidos.',search_ph:'Buscar equipo o partido…',search_none:'Partido no disponible. Solo listamos partidos de las ligas cubiertas con cuotas publicadas.',search_none2:'Aún no hay ligas cargadas. Abre primero una liga y luego busca.',two_weeks:'2 semanas',per_two_weeks:'/ 2 semanas',tier_basic:'Todos los partidos · sin anuncios · análisis breve',tier_full:'Todos los partidos · sin anuncios · análisis completo',up_free:'Hazte Premium para goles esperados, más mercados y valor.',up_basic:'Pasa a un plan mensual para el análisis completo.'},
+pt:{up:'Próximos',rt:'Ranking',tr:'Histórico',retrain:'Retreinar',install:'Instalar app',loading:'A carregar…',home:'Casa',draw:'Empate',away:'Fora',model:'Modelo',blended:'Estimativa final (modelo + mercado)',market:'Mercado (sem margem)',bestodds:'Melhores odds',ev:'EV do modelo',xg:'Golos esperados',topmk:'Outros mercados que o modelo avalia em 70%+',nomk:'Nenhum outro mercado passa dos 70% neste jogo.',allmk:'Todos os mercados',scores:'Resultados mais prováveis',minodds:'Odd mín.',skip:'Ignorar',skipwhy:'Demasiado incerto: a melhor opção segura é só {p}. Sem palpite.',conf_high:'Confiança alta',conf_med:'Confiança média',worth:'só vale a pena com odd de {o} ou mais',pk_1:'Vitória da casa',pk_X:'Empate',pk_2:'Vitória de fora',pk_1X:'Casa ou empate',pk_X2:'Fora ou empate',pk_12:'Casa ou fora (sem empate)',g_goals:'Golos (Ambas marcam, Mais/Menos)',g_double:'Dupla hipótese e Empate anula',g_handicap:'Handicap',g_team:'Golos por equipa',g_combo:'Combinadas',edgeline:'{n} mostra a maior vantagem do modelo',lowdata:'poucos dados de uma equipa',nomodel:'Sem previsão (equipa não reconhecida ou modelo não treinado)',locked_t:'Palpite bloqueado',locked_d:'Veja um anúncio curto para ver este jogo, ou fique sem anúncios.',watch:'Ver anúncio para desbloquear',adfree:'Sem anúncios',ad_title:'Anúncio',ad_wait:'Desbloqueia em {s}s',ad_done:'Desbloquear palpite',ad_close:'Fechar',ad_demo:'(Anúncio de teste. Os anúncios reais aparecerão aqui.)',pw_title:'Sem anúncios',pw_sub:'Sem anúncios. Todos os palpites desbloqueados.',week:'Semanal',month:'Mensal',year:'Anual',per_week:'/ semana',per_month:'/ mês',per_year:'/ ano',best:'Melhor valor',save:'Poupe {p}%',pay_soon:'O pagamento online chega em breve.',contact:'Fale connosco para subscrever',have_code:'Tem um código premium?',code_ph:'Cole o código',apply:'Aplicar',code_bad:'Esse código é inválido ou expirou.',cur:'Moeda',prem_badge:'Sem anúncios até {d}',approx_note:'Os preços convertidos são aproximados. O valor final aparece no pagamento.',nomatches:'Sem jogos próximos com odds neste momento.',books:'casas de apostas',disc:'As probabilidades são estimativas estatísticas, não garantias. Aposte só o que pode perder. 18+.',unlock_err:'Não foi possível desbloquear. Tente novamente.',watch:'Desbloquear este jogo',locked_d:'Os utilizadores gratuitos podem desbloquear um número limitado de jogos por dia. O Premium desbloqueia todos.',free_left:'{n} desbloqueios grátis restantes hoje',limit_hit:'Já usou os desbloqueios grátis de hoje. Passe a Premium para ver todos os jogos.',search_ph:'Pesquisar equipa ou jogo…',search_none:'Jogo indisponível. Só listamos jogos das ligas cobertas com odds publicadas.',search_none2:'Ainda não há ligas carregadas. Abra primeiro uma liga e depois pesquise.',two_weeks:'2 semanas',per_two_weeks:'/ 2 semanas',tier_basic:'Todos os jogos · sem anúncios · análise breve',tier_full:'Todos os jogos · sem anúncios · análise completa',up_free:'Passe a Premium para golos esperados, mais mercados e valor.',up_basic:'Passe a um plano mensal para a análise completa.'},
+de:{up:'Demnächst',rt:'Rangliste',tr:'Bilanz',retrain:'Neu trainieren',install:'App installieren',loading:'Lädt…',home:'Heim',draw:'Remis',away:'Auswärts',model:'Modell',blended:'Endschätzung (Modell + Markt)',market:'Markt (ohne Marge)',bestodds:'Beste Quoten',ev:'Modell-EV',xg:'Erwartete Tore',topmk:'Weitere Märkte mit 70 %+ laut Modell',nomk:'Kein weiterer Markt über 70 % in diesem Spiel.',allmk:'Alle Märkte',scores:'Wahrscheinlichste Ergebnisse',minodds:'Min.-Quote',skip:'Überspringen',skipwhy:'Zu unsicher: die beste sichere Option liegt nur bei {p}. Kein Tipp.',conf_high:'Hohe Sicherheit',conf_med:'Mittlere Sicherheit',worth:'nur ab einer Quote von {o} oder höher sinnvoll',pk_1:'Heimsieg',pk_X:'Unentschieden',pk_2:'Auswärtssieg',pk_1X:'Heim oder Remis',pk_X2:'Auswärts oder Remis',pk_12:'Heim oder Auswärts (kein Remis)',g_goals:'Tore (Beide treffen, Über/Unter)',g_double:'Doppelte Chance & Remis keine Wette',g_handicap:'Handicap',g_team:'Teamtore',g_combo:'Kombis',edgeline:'{n} zeigt den größten Modellvorteil',lowdata:'wenig Daten zu einem Team',nomodel:'Keine Prognose (Team unbekannt oder Modell nicht trainiert)',locked_t:'Tipp gesperrt',locked_d:'Sieh dir eine kurze Werbung an, um dieses Spiel zu sehen, oder nutze die werbefreie Version.',watch:'Werbung ansehen und freischalten',adfree:'Werbefrei',ad_title:'Werbung',ad_wait:'Freischaltung in {s}s',ad_done:'Tipp freischalten',ad_close:'Schließen',ad_demo:'(Testwerbung. Hier erscheint später echte Werbung.)',pw_title:'Werbefrei',pw_sub:'Keine Werbung. Alle Tipps freigeschaltet.',week:'Wöchentlich',month:'Monatlich',year:'Jährlich',per_week:'/ Woche',per_month:'/ Monat',per_year:'/ Jahr',best:'Bestes Angebot',save:'{p} % sparen',pay_soon:'Online-Zahlung kommt bald.',contact:'Kontakt für ein Abo',have_code:'Premium-Code vorhanden?',code_ph:'Code einfügen',apply:'Einlösen',code_bad:'Dieser Code ist ungültig oder abgelaufen.',cur:'Währung',prem_badge:'Werbefrei bis {d}',approx_note:'Umgerechnete Preise sind ungefähr. Der endgültige Betrag steht an der Kasse.',nomatches:'Derzeit keine kommenden Spiele mit Quoten.',books:'Buchmacher',disc:'Wahrscheinlichkeiten sind statistische Schätzungen, keine Garantien. Setze nur, was du verlieren kannst. 18+.',unlock_err:'Freischalten nicht möglich. Bitte erneut versuchen.',watch:'Dieses Spiel freischalten',locked_d:'Kostenlose Nutzer können täglich eine begrenzte Zahl Spiele freischalten. Premium schaltet alle frei.',free_left:'Noch {n} kostenlose Freischaltungen heute',limit_hit:'Du hast die heutigen Freischaltungen verbraucht. Mit Premium siehst du alle Spiele.',search_ph:'Team oder Spiel suchen…',search_none:'Spiel nicht verfügbar. Wir listen nur Spiele der abgedeckten Ligen mit veröffentlichten Quoten.',search_none2:'Noch keine Liga geladen. Öffne zuerst eine Liga und suche dann.',two_weeks:'2 Wochen',per_two_weeks:'/ 2 Wochen',tier_basic:'Alle Spiele · werbefrei · kurze Analyse',tier_full:'Alle Spiele · werbefrei · komplette Analyse',up_free:'Mit Premium: erwartete Tore, weitere Märkte und Value-Checks.',up_basic:'Wechsle zum Monatsplan für die komplette Analyse.'},
+ar:{up:'القادمة',rt:'التصنيف',tr:'السجل',retrain:'إعادة التدريب',install:'تثبيت التطبيق',loading:'جارٍ التحميل…',home:'المضيف',draw:'تعادل',away:'الضيف',model:'النموذج',blended:'التقدير النهائي (النموذج + السوق)',market:'السوق (بعد إزالة الهامش)',bestodds:'أفضل الأسعار',ev:'القيمة المتوقعة',xg:'الأهداف المتوقعة',topmk:'أسواق أخرى يقيّمها النموذج 70% فأكثر',nomk:'لا يوجد سوق إضافي يتجاوز 70% لهذه المباراة.',allmk:'كل الأسواق',scores:'النتائج الأكثر احتمالاً',minodds:'أدنى سعر',skip:'تجاوز',skipwhy:'غير مؤكد: أفضل خيار آمن {p} فقط. لا توجد توصية.',conf_high:'ثقة عالية',conf_med:'ثقة متوسطة',worth:'يستحق فقط عند سعر {o} أو أعلى',pk_1:'فوز المضيف',pk_X:'تعادل',pk_2:'فوز الضيف',pk_1X:'المضيف أو التعادل',pk_X2:'الضيف أو التعادل',pk_12:'المضيف أو الضيف (بلا تعادل)',g_goals:'الأهداف (كلا الفريقين يسجل، أكثر/أقل)',g_double:'الفرصة المزدوجة واسترداد عند التعادل',g_handicap:'الإعاقة',g_team:'أهداف الفريق',g_combo:'رهانات مركبة',edgeline:'{n} يُظهر أكبر أفضلية للنموذج',lowdata:'بيانات قليلة عن فريق',nomodel:'لا توجد توقعات (فريق غير معروف أو نموذج غير مدرّب)',locked_t:'التوقع مقفل',locked_d:'شاهد إعلاناً قصيراً لعرض هذه المباراة، أو اشترك بدون إعلانات.',watch:'شاهد إعلاناً للفتح',adfree:'بدون إعلانات',ad_title:'إعلان',ad_wait:'يُفتح بعد {s} ث',ad_done:'افتح التوقع',ad_close:'إغلاق',ad_demo:'(إعلان تجريبي. ستظهر الإعلانات الحقيقية هنا.)',pw_title:'بدون إعلانات',pw_sub:'بلا إعلانات. كل التوقعات مفتوحة.',week:'أسبوعي',month:'شهري',year:'سنوي',per_week:'/ أسبوع',per_month:'/ شهر',per_year:'/ سنة',best:'الأفضل قيمة',save:'وفّر {p}%',pay_soon:'الدفع الإلكتروني قريباً.',contact:'تواصل معنا للاشتراك',have_code:'لديك رمز اشتراك؟',code_ph:'الصق الرمز',apply:'تطبيق',code_bad:'الرمز غير صالح أو منتهي.',cur:'العملة',prem_badge:'بدون إعلانات حتى {d}',approx_note:'الأسعار المحوّلة تقريبية. يظهر المبلغ النهائي عند الدفع.',nomatches:'لا توجد مباريات قادمة بأسعار حالياً.',books:'شركات مراهنات',disc:'الاحتمالات تقديرات إحصائية وليست ضمانات. لا تراهن إلا بما تتحمل خسارته. +18.',unlock_err:'تعذر الفتح. حاول مرة أخرى.',watch:'افتح هذه المباراة',locked_d:'يمكن للمستخدمين المجانيين فتح عدد محدود من المباريات يومياً. يفتح الاشتراك المميز كل المباريات.',free_left:'متبقي {n} عمليات فتح مجانية اليوم',limit_hit:'استخدمت عمليات الفتح المجانية لهذا اليوم. اشترك لرؤية كل المباريات.',search_ph:'ابحث عن فريق أو مباراة…',search_none:'المباراة غير متاحة. نعرض فقط مباريات الدوريات المغطاة التي لها أسعار منشورة.',search_none2:'لم يتم تحميل أي دوري بعد. افتح دورياً أولاً ثم ابحث.',two_weeks:'أسبوعان',per_two_weeks:'/ أسبوعين',tier_basic:'كل المباريات · بلا إعلانات · تحليل مختصر',tier_full:'كل المباريات · بلا إعلانات · تحليل كامل',up_free:'اشترك للحصول على الأهداف المتوقعة وأسواق إضافية وفحص القيمة.',up_basic:'انتقل إلى الخطة الشهرية للحصول على التحليل الكامل.'}
+};
+const t=(k,v)=>{let s=(I18N[S.lang]&&I18N[S.lang][k])||I18N.en[k]||k;if(v)for(const x in v)s=s.replace('{'+x+'}',v[x]);return s};
+
+/* Language rule: English for Nigeria or any English browser; otherwise the browser's language if we have it. */
+function detectLang(){
+  const saved=ls.get('lang');if(saved&&LANGS[saved])return saved;
+  let tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
+  if(tz==='Africa/Lagos')return 'en';
+  for(const x of (navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||'en'])){
+    const b=String(x).toLowerCase().split('-')[0];
+    if(b==='en')return 'en';
+    if(LANGS[b])return b;
+  }
+  return 'en';
+}
+/* Currency: Nigeria -> naira; otherwise the browser's region; USD if unknown. Visitors can change it in the paywall. */
+const CC={NG:'NGN',US:'USD',GB:'GBP',GH:'GHS',KE:'KES',ZA:'ZAR',CA:'CAD',AU:'AUD',IN:'INR',BR:'BRL',AE:'AED',EG:'EGP',TZ:'TZS',UG:'UGX',MA:'MAD',SN:'XOF',CI:'XOF',BJ:'XOF',TG:'XOF',BF:'XOF',ML:'XOF',NE:'XOF',CM:'XAF',GA:'XAF',TD:'XAF',CG:'XAF',FR:'EUR',DE:'EUR',ES:'EUR',IT:'EUR',PT:'EUR',NL:'EUR',BE:'EUR',IE:'EUR',AT:'EUR',FI:'EUR',GR:'EUR',MX:'MXN',SA:'SAR',TR:'TRY',CH:'CHF'};
+function detectCur(){
+  const saved=ls.get('cur');if(saved)return saved;
+  let tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
+  if(tz==='Africa/Lagos')return 'NGN';
+  for(const x of (navigator.languages||[navigator.language||''])){const r=String(x).split('-')[1];if(r&&CC[r.toUpperCase()])return CC[r.toUpperCase()]}
+  return 'USD';
+}
+function applyStatic(){document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));document.querySelectorAll('[data-i18n-ph]').forEach(el=>el.placeholder=t(el.dataset.i18nPh))}
+function applyLang(){
+  document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr';
+  applyStatic();
+  if(S.query&&S.sj)renderSearch();else if(tab==='up'&&S.j)renderUp();else if(tab!=='up')load();
+}
+
+/* ---------------- access headers ---------------- */
+const hdrs=()=>({'X-Access':ls.get('access')||'','X-Premium':ls.get('premium')||'','X-Admin-Token':ls.get('adm')||''});
+
+/* ---------------- modal ---------------- */
+function openModal(html){$('#sheet').innerHTML=html;$('#modal').hidden=false}
+function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML=''}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+
+/* ---------------- free daily unlocks (no ad needed) ---------------- */
+async function unlock(eventId,leagueKey){
+  try{
+    const r=await fetch('/api/unlock',{method:'POST',headers:{...hdrs(),'Content-Type':'application/json'},body:JSON.stringify({league:leagueKey||$('#league').value,event_id:eventId})});
+    const j=await r.json();
+    if(r.status===429){alert(t('limit_hit'));openPaywall();return}
+    if(!r.ok)throw new Error(j.error||'');
+    ls.set('access',j.access);S.query?runSearch(S.query):load();
+  }catch(e){alert(t('unlock_err'))}
+}
+/* Adsterra banners (free users only): each slot is a sandboxed iframe so ad scripts can never redirect or touch the page. */
+function mountAds(){
+  const html=S.ad;if(!html)return;
+  const w=+((/['"]width['"]\s*:\s*(\d+)/.exec(html)||[])[1]||300), hgt=+((/['"]height['"]\s*:\s*(\d+)/.exec(html)||[])[1]||250);
+  document.querySelectorAll('.adslot:not([data-done])').forEach(el=>{
+    const f=document.createElement('iframe');f.width=w;f.height=hgt;f.style.border='0';f.style.maxWidth='100%';
+    f.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');f.setAttribute('loading','lazy');
+    f.srcdoc='<!doctype html><html><body style="margin:0">'+html+'</body></html>';
+    el.appendChild(f);el.dataset.done='1';
+  });
+}
+function cardsWithAds(j){
+  S.ad=(!j.premium&&j.ad_html)||'';
+  const ad=S.ad?`<div class="adslot"><div class="lab">${t('ad_title')}</div></div>`:'';
+  return j.events.map((e,i)=>card(e)+(i%3===2?ad:'')).join('')+ad;
+}
+function headerState(j){
+  $('#goadfree').hidden=!!j.premium;
+  $('#badge').textContent=j.admin?'Admin · full access':(j.premium?t('prem_badge',{d:new Date(j.premium_until*1000).toLocaleDateString(S.lang)}):'');
+  $('#quota').textContent=(!j.premium&&j.quota)?t('free_left',{n:Math.max(0,j.quota.limit-j.quota.used)}):'';
+}
+/* ---------------- search (looks only at leagues already loaded on the server) ---------------- */
+S.query='';
+async function runSearch(q){
+  S.query=q;
+  if(q.length<2){S.query='';load();return}
+  if(tab!=='up'){tab='up';['up','rt','tr'].forEach(k=>$('#t-'+k).classList.toggle('on',k==='up'))}
+  $('#view').innerHTML=`<div class="msg">${t('loading')}</div>`;
+  try{S.sj=await (await fetch('/api/search?q='+encodeURIComponent(q),{headers:hdrs()})).json()}catch(e){S.sj={events:[],searched:0}}
+  renderSearch();
+}
+function renderSearch(){
+  const j=S.sj,v=$('#view');if(!j)return;
+  headerState(j);$('#metrics').textContent='';
+  v.innerHTML=(j.events&&j.events.length)?cardsWithAds(j):`<div class="msg">${t(j.searched?'search_none':'search_none2')}</div>`;
+  mountAds();
+}
+
+/* ---------------- pricing / paywall ---------------- */
+async function ensurePricing(){if(!S.pricing){try{S.pricing=await (await fetch('/api/pricing')).json()}catch(e){S.pricing={plans:{},rates:{}}}}return S.pricing}
+function money(ngn){
+  const nf=(c,d)=>new Intl.NumberFormat(S.lang,{style:'currency',currency:c,maximumFractionDigits:d}).format;
+  const base=nf('NGN',0)(ngn), rate=S.pricing.rates&&S.pricing.rates[S.cur];
+  if(S.cur==='NGN'||!rate)return base;
+  const v=ngn*rate;return `≈ ${nf(S.cur,v<10?2:0)(v)}<small>${base}</small>`;
+}
+async function openPaywall(){
+  const p=await ensurePricing(), pl=p.plans||{};
+  const keys=Object.keys(pl);if(!keys.length){return}
+  const curs=['NGN',...Object.keys(p.rates||{}).filter(c=>c!=='NGN')];
+  openModal(`<h3>${t('pw_title')}</h3><div class="lab">${t('pw_sub')}</div>
+  <div class="row" style="margin-top:8px"><span class="lab">${t('cur')}</span><select id="cursel">${curs.map(c=>`<option ${c===S.cur?'selected':''}>${c}</option>`).join('')}</select></div>
+  ${keys.map(k=>`<div class="plan ${pl[k].tier==='full'?'best':''}"><div><b>${t(k)}</b><br><span class="lab">${t('tier_'+pl[k].tier)}</span></div><div class="price">${money(pl[k].ngn)}<small>${t('per_'+k)}</small></div></div>`).join('')}
+  <div class="lab">${t('approx_note')} <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a></div>
+  ${p.contact_url?`<a class="btn" href="${esc(p.contact_url)}" target="_blank" rel="noopener">${t('contact')}</a>`:`<div class="lab note">${t('pay_soon')}</div>`}
+  <div class="lab" style="margin-top:14px">${t('have_code')}</div>
+  <div class="row"><input id="code" placeholder="${t('code_ph')}" autocomplete="off"><button id="applycode">${t('apply')}</button></div><div id="codemsg" class="lab note"></div>
+  <button id="closem" style="width:100%">${t('ad_close')}</button>`);
+  $('#cursel').onchange=e=>{S.cur=e.target.value;ls.set('cur',S.cur);openPaywall()};
+  $('#closem').onclick=closeModal;
+  $('#applycode').onclick=async()=>{
+    const c=$('#code').value.trim();if(!c)return;
+    const j=await (await fetch('/api/me',{headers:{'X-Premium':c}})).json();
+    if(j.premium){ls.set('premium',c);closeModal();load()}else $('#codemsg').textContent=t('code_bad');
+  };
+}
+
+/* ---------------- rendering ---------------- */
+function backtest(m){
+  if(!m||!m.markets)return '';
+  const rows=Object.values(m.markets).filter(x=>x.n70>=20).sort((a,b)=>b.hit70-a.hit70);
+  const o=m.over25_vs_market;
+  return `<details class="card"><summary>Market backtest (past matches)</summary><table><tr><th>Market</th><th>Rated 70%+</th><th>Actually hit</th></tr>${rows.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.n70}</td><td class="${x.hit70>=0.68?'pos':'neg'}">${pct(x.hit70)}</td></tr>`).join('')||'<tr><td colspan=3>Not enough data</td></tr>'}</table>
+  <div class="lab">If "actually hit" is clearly below 70%, the model is overconfident for that market. Treat it with caution.</div>
+  ${o?`<div class="lab">Over/Under 2.5 accuracy score vs bookmakers (lower is better): model ${o.model} vs market ${o.market} over ${o.n} matches.</div>`:''}</details>`;
+}
+function bar(p){return `<div class="bar"><span style="width:${p[0]*100}%;background:var(--h)">${pct(p[0])}</span><span style="width:${p[1]*100}%;background:var(--d)">${pct(p[1])}</span><span style="width:${p[2]*100}%;background:var(--a)">${pct(p[2])}</span></div>`}
+const fmtWhen=e=>(e.league?esc(e.league)+' · ':'')+new Date(e.commence).toLocaleString(S.lang,{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+' · '+e.books+' '+t('books');
+
+function lockedCard(e){
+  return `<div class="card locked"><div class="when">${fmtWhen(e)}</div>
+  <div class="teams"><span>${esc(e.home)}</span><span style="text-align:right">${esc(e.away)}</span></div>
+  <div class="lockbox"><b>🔒 ${t('locked_t')}</b><small>${t('locked_d')}</small>
+  <div class="row"><button class="primary" data-unlock="${esc(e.id)}" data-league="${esc(e.league_key||'')}">${t('watch')}</button><button data-paywall>${t('adfree')}</button></div></div></div>`;
+}
+function card(e){
+  if(e.locked)return lockedCard(e);
+  const m=e.model;
+  const bestEv=m&&m.ev?Math.max(...m.ev):null, bi=m&&m.ev?m.ev.indexOf(bestEv):-1;
+  const name=[t('home'),t('draw'),t('away')];
+  let h=`<div class="card"><div class="when">${fmtWhen(e)}</div>
+  <div class="teams"><span>${esc(e.home)}</span><span style="text-align:right">${esc(e.away)}</span></div>`;
+  const pk=e.pick;
+  if(pk){
+    h+= pk.code==='SKIP'
+      ? `<div class="pick none"><b class="big">${t('skip')}</b><small>${t('skipwhy',{p:pct(pk.prob)})}</small></div>`
+      : `<div class="pick ${pk.level}"><b class="big">${pk.code}</b> · ${t('pk_'+pk.code)} <span class="badge">${pct(pk.prob)}</span>
+         <small>${pk.level==='high'?t('conf_high'):t('conf_med')} · ${t('worth',{o:pk.fair_odds.toFixed(2)})}</small></div>`;
+  }
+  if(e.markets){
+    const mk=e.markets;
+    h+=`<div class="lab">${t('xg')}: <b>${mk.xg[0]} – ${mk.xg[1]}</b></div>`;
+    h+=mk.top.length?`<div class="lab">${t('topmk')}</div>${mk.top.map(x=>`<span class="chip">${esc(x.label)} · ${pct(x.prob)} · ${t('minodds')} ${x.odds.toFixed(2)}</span>`).join('')}`:`<div class="lab note">${t('nomk')}</div>`;
+    if(mk.groups)h+=`<details><summary>${t('allmk')}</summary>${Object.entries(mk.groups).map(([g,items])=>`<h4>${t('g_'+g)}</h4><table>${items.map(i=>`<tr><td>${esc(i.label)}</td><td>${pct(i.prob)}${i.push!==undefined?` <span class="lab">(${pct(i.push)})</span>`:''}</td><td>${i.odds?i.odds.toFixed(2):'-'}</td></tr>`).join('')}</table>`).join('')}<h4>${t('scores')}</h4><div>${(mk.scores||[]).map(s=>`<span class="chip" style="border-color:var(--line)">${s.score} · ${pct(s.prob)}</span>`).join('')}</div></details>`;
+  }
+  if(m){
+    h+=`<div class="lab">${t('model')}${m.low_data?` <span class="note">· ${t('lowdata')}</span>`:''}</div>${bar(m.probs)}<div class="lab">${t('blended')}</div>${bar(m.blend)}`;
+  }else h+=`<div class="lab note">${t('nomodel')}</div>`;
+  h+=`<div class="lab">${t('market')}</div>${bar(e.market)}`;
+  h+=`<table><tr><th></th><th>${t('home')}</th><th>${t('draw')}</th><th>${t('away')}</th></tr>
+  <tr><td>${t('bestodds')}</td>${e.best.map(b=>`<td title="${esc(b.book)}">${b.odds.toFixed(2)}</td>`).join('')}</tr>`;
+  if(m&&m.ev)h+=`<tr><td>${t('ev')}</td>${m.ev.map(v=>`<td class="${v>0?'pos':'neg'}">${v>0?'+':''}${(v*100).toFixed(1)}%</td>`).join('')}</tr>`;
+  h+=`</table>`;
+  if(m&&m.ev&&bestEv>0.03)h+=`<div class="lab"><b>${t('edgeline',{n:name[bi]})}</b><span class="badge">+${(bestEv*100).toFixed(1)}% EV</span></div>`;
+  if(e.level==='free')h+=`<div class="lab note">${t('up_free')} <a href="#" data-paywall>${t('adfree')}</a></div>`;
+  else if(e.level==='basic')h+=`<div class="lab note">${t('up_basic')} <a href="#" data-paywall>${t('adfree')}</a></div>`;
+  return h+`</div>`;
+}
+function renderUp(){
+  const j=S.j,v=$('#view');if(!j)return;
+  const mt=j.metrics;
+  $('#metrics').textContent=mt?`Backtest: model log-loss ${mt.log_loss}${mt.market_log_loss?` vs market ${mt.market_log_loss}`:''}${mt.blend_log_loss?` · blended ${mt.blend_log_loss}`:''} · accuracy ${pct(mt.accuracy)}${j.meta&&j.meta.remaining!=null?` · API credits left: ${j.meta.remaining}`:''}`:'';
+  headerState(j);
+  if(!S.ok){v.innerHTML=`<div class="msg">${esc(j.error||'Error')}${j.trained===false?'<br>Model not trained yet.':''}</div>`;return}
+  v.innerHTML=(j.events.length?cardsWithAds(j):`<div class="msg">${t('nomatches')}</div>`)+backtest(j.metrics);mountAds();
+}
+
+async function load(force=false){
+  const lg=$('#league').value, v=$('#view');
+  v.innerHTML=`<div class="msg">${t('loading')}</div>`;
+  if(tab==='tr'){
+    $('#metrics').textContent='';
+    const res=await fetch('/api/track'), tj=await res.json();
+    if(!res.ok){v.innerHTML=`<div class="msg">${esc(tj.error||'Error')}</div>`;return}
+    const o=tj.overall, lab={'1':'Home win','2':'Away win','X':'Draw','1X':'Home or Draw','X2':'Away or Draw','12':'Home or Away'};
+    let x='';
+    if(tj.storage==='temporary'&&ls.get('adm'))x+=`<div class="card note">History is stored temporarily on this host and resets when the site restarts. Add a free Postgres DATABASE_URL to keep it permanently.</div>`;
+    x+=`<div class="card"><b>Overall (settled picks)</b>`+(o.settled?`<table><tr><td>Picks settled</td><td>${o.settled}</td></tr><tr><td>Won</td><td>${o.wins}</td></tr><tr><td>Actual hit rate</td><td><b>${pct(o.hit_rate)}</b></td></tr><tr><td>Model expected</td><td>${pct(o.avg_predicted)}</td></tr></table><div class="lab">If actual is well below expected, the model is overconfident. ${o.settled<100?'Fewer than 100 picks is too few to judge.':''}</div>`:`<div class="lab">No settled picks yet. Picks are locked before kickoff and settle after the match once results are published.</div>`)+`</div>`;
+    const types=Object.entries(tj.by_type);
+    if(types.length)x+=`<div class="card"><b>By pick type</b><table><tr><th>Pick</th><th>Played</th><th>Won</th><th>Actual</th><th>Expected</th></tr>${types.map(([k,b])=>`<tr><td>${k} · ${lab[k]}</td><td>${b.settled}</td><td>${b.wins}</td><td>${pct(b.hit_rate)}</td><td>${pct(b.avg_predicted)}</td></tr>`).join('')}</table></div>`;
+    if(tj.singles_roi)x+=`<div class="card"><b>Straight picks (1 / X / 2)</b><div class="lab">Flat 1 unit at best odds seen: ${tj.singles_roi.bets} bets, ROI <b class="${tj.singles_roi.roi>=0?'pos':'neg'}">${(tj.singles_roi.roi*100).toFixed(1)}%</b>. Double-chance ROI is not shown because real double-chance odds are not fetched.</div></div>`;
+    if(tj.recent.length)x+=`<div class="card"><b>Recent results</b> <span class="lab">(${tj.pending} pending)</span><table>${tj.recent.map(r=>`<tr><td style="text-align:left">${esc(r.home)} v ${esc(r.away)}<div class="lab">${new Date(r.commence).toLocaleDateString(S.lang,{day:'numeric',month:'short'})} · ${r.pick_code} · ${pct(r.pick_prob)}</div></td><td>${r.score||''}</td><td class="${r.status==='won'?'pos':'neg'}">${r.status}</td></tr>`).join('')}</table></div>`;
+    v.innerHTML=x;return;
+  }
+  if(tab==='rt'){
+    const r=await (await fetch('/api/ratings?league='+lg)).json();
+    v.innerHTML=r.ratings.length?`<div class="card"><table><tr><th>#</th><th>Team</th><th>Elo</th></tr>${r.ratings.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${esc(x.team)}</td><td>${x.elo}</td></tr>`).join('')}</table></div>`:'<div class="msg">No ratings yet.</div>';
+    return;
+  }
+  const res=await fetch('/api/predictions?league='+lg+(force?'&force=1':''),{headers:hdrs()});
+  S.j=await res.json();S.ok=res.ok;renderUp();
+}
+
+async function retrain(){
+  const b=$('#refresh');b.disabled=true;
+  const r=await fetch('/api/refresh?league='+$('#league').value,{method:'POST',headers:{'X-Admin-Token':ls.get('adm')||''}});
+  if(r.status===401){b.disabled=false;alert('Admin token missing or wrong. Open /admin to save it.');return}
+  const poll=setInterval(async()=>{
+    const s=await (await fetch('/api/status')).json();
+    b.textContent=s.running?s.message:t('retrain');
+    if(!s.running){clearInterval(poll);b.disabled=false;b.textContent=t('retrain');load()}
+  },1500);
+}
+
+/* ---------------- wiring ---------------- */
+S.lang=detectLang();S.cur=detectCur();
+$('#lang').innerHTML=Object.entries(LANGS).map(([k,n])=>`<option value="${k}" ${k===S.lang?'selected':''}>${n}</option>`).join('');
+$('#lang').onchange=e=>{S.lang=e.target.value;ls.set('lang',S.lang);applyLang()};
+$('#league').onchange=()=>{S.query='';$('#q').value='';load()};
+$('#refresh').onclick=retrain;
+$('#refresh').hidden=!ls.get('adm');
+$('#goadfree').onclick=openPaywall;
+let qt;$('#q').addEventListener('input',e=>{clearTimeout(qt);const q=e.target.value.trim();qt=setTimeout(()=>runSearch(q),500)});
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(qt);runSearch(e.target.value.trim())}});
+$('#view').addEventListener('click',e=>{
+  const u=e.target.closest('[data-unlock]');if(u){unlock(u.dataset.unlock,u.dataset.league);return}
+  if(e.target.closest('[data-paywall]')){e.preventDefault();openPaywall()}
+});
+function setTab(x){S.query='';$('#q').value='';tab=x;['up','rt','tr'].forEach(k=>$('#t-'+k).classList.toggle('on',k===x));load()}
+$('#t-up').onclick=()=>setTab('up');$('#t-rt').onclick=()=>setTab('rt');$('#t-tr').onclick=()=>setTab('tr');
+document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr';
+applyStatic();
+load();
+
+// PWA: register service worker + custom install button
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+let deferred=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#install').hidden=false});
+$('#install').onclick=async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice;deferred=null;$('#install').hidden=true};
+window.addEventListener('appinstalled',()=>{$('#install').hidden=true});
+</script>
+</body>
+</html>

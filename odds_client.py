@@ -72,6 +72,14 @@ def _parse_event(e: dict):
     return {"id": e["id"], "home": home, "away": away, "commence": e["commence_time"], "books": books}
 
 
+def cached_events(sport_key: str):
+    """Events already in the cache (still fresh), or None. Never calls the API, so it never spends credits."""
+    hit = _cache.get(sport_key)
+    if hit and time.time() - hit["t"] < ODDS_CACHE_TTL:
+        return hit["events"]
+    return None
+
+
 def get_odds(sport_key: str, force: bool = False):
     if not ODDS_API_KEY:
         raise OddsError("ODDS_API_KEY is not set. Get a free key at the-odds-api.com and add it to .env")
