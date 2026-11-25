@@ -173,7 +173,8 @@ def summary():
         profit = sum((r[key[r["pick_code"]]] - 1) if r["status"] == "won" else -1 for r in singles)
         roi = {"bets": len(singles), "roi": round(profit / len(singles), 4)}
 
+    # pending picks are hidden here so the track record can't leak locked predictions
     recent = [{k: r[k] for k in ("home", "away", "commence", "pick_code", "pick_prob", "status", "score")}
-              for r in rows[:40]]
+              for r in rows if r["status"] != "pending"][:40]
     return {"overall": block(done), "by_type": by_type, "singles_roi": roi, "recent": recent,
             "pending": sum(r["status"] == "pending" for r in rows), "storage": storage_kind()}

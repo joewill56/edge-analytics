@@ -13,7 +13,7 @@ DB_PATH = DATA_DIR / "betting.db"
 
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
 ODDS_REGIONS = os.getenv("ODDS_REGIONS", "uk,eu")
-ODDS_CACHE_TTL = int(os.getenv("ODDS_CACHE_TTL", "900"))  # seconds; protects free quota
+ODDS_CACHE_TTL = int(os.getenv("ODDS_CACHE_TTL", "7200"))  # seconds; protects free quota
 HIST_SEASONS = int(os.getenv("HIST_SEASONS", "5"))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 # Optional Postgres URL (e.g. free Neon) so the track record survives restarts
@@ -30,6 +30,17 @@ BLEND_WEIGHT = float(os.getenv("BLEND_WEIGHT", "0.35"))
 # Extra goal markets: "safest options" band (model probability)
 MARKET_MIN = float(os.getenv("MARKET_MIN", "0.70"))
 MARKET_MAX = float(os.getenv("MARKET_MAX", "0.85"))  # above this the fair odds are too short to be worth listing
+
+# --- Access control & pricing (see gate.py / pricing.py) ---
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()   # signs unlock + premium tokens. REQUIRED in production.
+CONTACT_URL = os.getenv("CONTACT_URL", "").strip() # e.g. your Telegram link, shown on the paywall until online payment is live
+UNLOCK_GRACE_HOURS = 3                              # an unlock stays valid until this long after kickoff
+FREE_DAILY_UNLOCKS = int(os.getenv("FREE_DAILY_UNLOCKS", "10"))  # matches a free user can open per day (Nigeria time)
+ADSTERRA_BANNER_HTML = os.getenv("ADSTERRA_BANNER_HTML", "").strip()  # paste your Adsterra banner code; shown to free users only
+PLANS = {                                           # base prices in naira; tier decides what premium unlocks
+    "two_weeks": {"days": 14, "ngn": 2000, "tier": "basic"},   # all matches, no ads, small analysis
+    "month": {"days": 30, "ngn": 3500, "tier": "full"},        # all matches, no ads, complete analysis
+}
 
 # The Odds API sport key -> football-data.co.uk league code
 LEAGUES = {
