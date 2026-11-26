@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Edge admin</title>
+<style>body{font:15px/1.45 system-ui,sans-serif;padding:16px;max-width:560px;margin:auto}
+input,select,button,textarea{font:inherit;width:100%;padding:10px;margin:6px 0;box-sizing:border-box}
+button{background:#2563eb;color:#fff;border:0;border-radius:8px}button.alt{background:#e5e7eb;color:#111}button.red{background:#e11d48}
+small{color:#666}.sub{border:1px solid #ddd;border-radius:10px;padding:10px;margin:8px 0;word-break:break-all}
+.row{display:flex;gap:6px}.row button{margin:6px 0}</style></head>
+<body>
+<h2>Edge admin</h2>
+<input id="adm" type="password" placeholder="Admin token (ADMIN_TOKEN on Render)">
+<button id="save">Save token on this device</button>
+<small>Saving it gives this phone free full access, shows the Retrain button and API credits left. Do this only on your own devices.</small>
+
+<h3>Give someone premium (bank transfer, gift)</h3>
+<small>Creates a real subscription with its own unique code. Giving the same email another plan extends their current one.</small>
+<input id="email" type="email" placeholder="Customer email (required)">
+<select id="plan">{% for k,v in plans.items() %}<option value="{{k}}">{{ k.replace('_',' ')|capitalize }} (₦{{ '{:,}'.format(v.ngn) }}, {{v.days}} days)</option>{% endfor %}</select>
+<button id="grant">Create code</button>
+<textarea id="out" rows="4" readonly></textarea>
+
+<h3>Find a customer</h3>
+<small>Search by email to see their code, rotate it (the old code stops working immediately), revoke it, or resend the email.</small>
+<input id="find" type="email" placeholder="Customer email">
+<button id="findgo">Search</button>
+<div id="subs"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const tok=()=>$('#adm').value.trim()||localStorage.getItem('adm')||'';
+$('#adm').value=localStorage.getItem('adm')||'';
+const api=(url,method,body)=>fetch(url,{method,headers:{'Content-Type':'application/json','X-Admin-Token':tok()},body:body?JSON.stringify(body):undefined}).then(async r=>({ok:r.ok,j:await r.json()}));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+$('#save').onclick=()=>{localStorage.setItem('adm',$('#adm').value.trim());alert('Saved')};
+$('#grant').onclick=async()=>{
+  const {ok,j}=await api('/api/admin/grant','POST',{email:$('#email').value,plan:$('#plan').value});
+  $('#out').value=ok?j.code+'\n\nExpires: '+new Date(j.expires*1000).toLocaleString():(j.error||'Error');
+};
+async function find(){
+  const {ok,j}=await api('/api/admin/subs?email='+encodeURIComponent($('#find').value),'GET');
+  $('#subs').innerHTML=!ok?esc(j.error||'Error'):(j.subs.length?j.subs.map(s=>`<div class="sub"><b>${esc(s.code)}</b><br>${esc(s.email)} · ${esc(s.plan)} (${esc(s.tier)}) · ${esc(s.status)} · ${esc(s.source)}<br>Expires ${esc(s.expires_at)}
+   <div class="row"><button class="alt" data-a="rotate" data-id="${esc(s.id)}">Rotate code</button><button class="alt" data-a="resend" data-id="${esc(s.id)}">Resend email</button><button class="red" data-a="revoke" data-id="${esc(s.id)}">Revoke</button></div></div>`).join(''):'No subscriptions for that email.');
+}
+$('#findgo').onclick=find;
+$('#subs').onclick=async e=>{
+  const b=e.target.closest('button[data-a]');if(!b)return;
+  if(b.dataset.a==='revoke'&&!confirm('Revoke this subscription? The customer loses premium immediately.'))return;
+  const {ok,j}=await api(`/api/admin/subs/${b.dataset.id}/${b.dataset.a}`,'POST');
+  alert(ok?(j.code?('New code: '+j.code+(j.emailed?' (emailed)':'')):(j.emailed===false?'Email is not set up.':'Done')):(j.error||'Error'));
+  find();
+};
+</script></body></html>

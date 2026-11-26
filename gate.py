@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from itsdangerous import URLSafeSerializer
 
+import subs
 from config import FREE_DAILY_UNLOCKS, SECRET_KEY
 
 log = logging.getLogger(__name__)
@@ -75,9 +76,14 @@ def make_premium(email: str, days: int, tier: str = "full"):
 
 
 def premium_info(token):
-    data = _load(_premium, token)
+    token = (token or "").strip()
+    if not token:
+        return None
+    if subs.CODE_RE.match(token):  # normal codes: looked up in the database (rotated/revoked codes fail here)
+        return subs.lookup(token)
+    data = _load(_premium, token)  # older signed codes issued before payments existed
     if isinstance(data, dict) and data.get("x", 0) > time.time():
-        tier = data.get("t") if data.get("t") in ("basic", "full") else "full"  # older codes count as full
+        tier = data.get("t") if data.get("t") in ("basic", "full") else "full"
         return {"email": data.get("e", ""), "expires": int(data["x"]), "tier": tier}
     return None
 

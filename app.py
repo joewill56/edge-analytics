@@ -1,6 +1,8 @@
 import difflib
 import logging
+import html as htmllib
 import re
+import secrets
 import threading
 import time
 import unicodedata
@@ -11,14 +13,17 @@ from flask import Flask, jsonify, make_response, render_template, request, send_
 
 import db
 import gate
+import mailer
 import markets
 import model
 import odds_client
+import payments
 import pipeline
 import pricing
+import subs
 import track
 from picks import recommend
-from config import ADMIN_TOKEN, ADSTERRA_BANNER_HTML, BLEND_WEIGHT, LEAGUES, PLANS, UNLOCK_GRACE_HOURS
+from config import ADMIN_TOKEN, ADSTERRA_BANNER_HTML, BLEND_WEIGHT, LEAGUES, PLANS, PUBLIC_URL, UNLOCK_GRACE_HOURS
 from features import implied_probs
 
 logging.basicConfig(level=logging.INFO)
@@ -210,28 +215,185 @@ def api_search():
 
 @app.get("/api/me")
 def api_me():
+    if _is_admin():
+        return jsonify(premium=True, admin=True, until=None)
     prem = gate.premium_info(request.headers.get("X-Premium"))
     return jsonify(premium=bool(prem), until=prem["expires"] if prem else None)
 
 
 @app.get("/api/pricing")
 def api_pricing():
-    return jsonify(pricing.payload())
+    return jsonify({**pricing.payload(), "pay_enabled": payments.enabled(), "mail_enabled": mailer.enabled()})
 
 
 @app.post("/api/admin/grant")
 def api_admin_grant():
-    """Owner-only: create a premium code (use for manual/transfer payments until online payment is live)."""
+    """Owner-only: give someone premium without Flutterwave (e.g. a bank-transfer sale). Creates a real
+    subscription with its own code; granting again to the same email extends it."""
     if not _is_admin():
         return jsonify(error="Unauthorized"), 401
-    if not gate.SECRET_IS_SET:
-        return jsonify(error="Set SECRET_KEY on the server first, or codes will stop working after a restart."), 400
+    if track.storage_kind() == "temporary":
+        return jsonify(error="Set DATABASE_URL first: without a persistent database the code would be lost on restart."), 400
     d = request.get_json(silent=True) or {}
-    plan = PLANS.get(d.get("plan"))
-    if not plan:
-        return jsonify(error="Unknown plan"), 400
-    code, exp = gate.make_premium((d.get("email") or "").strip().lower(), plan["days"], plan["tier"])
-    return jsonify(code=code, expires=exp)
+    email = (d.get("email") or "").strip().lower()
+    if d.get("plan") not in PLANS or not subs.valid_email(email):
+        return jsonify(error="A valid email and plan are required"), 400
+    sub = subs.create_subscription(email, d["plan"], "manual")
+    return jsonify(code=sub["code"], expires=subs._ts(sub["expires_at"]))
+
+
+# ---------------- online payments (Flutterwave) ----------------
+_hits: dict = {}
+
+
+def _limited(key, limit, window):
+    """Tiny in-memory rate limiter (one worker process): True when `key` exceeded `limit` hits in `window` seconds."""
+    now = time.time()
+    recent = [t for t in _hits.get(key, []) if now - t < window]
+    recent.append(now)
+    _hits[key] = recent
+    return len(recent) > limit
+
+
+def _ip():
+    return (request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote_addr or "?")
+
+
+def _fmt_date(iso):
+    return datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").strftime("%d %b %Y")
+
+
+def _email_code(sub, renewed=False):
+    plan = PLANS.get(sub["plan"], {})
+    body = (f"<p>Thank you for subscribing to Edge Analytics.</p>"
+            f"<p>Your premium code:</p><p style='font-size:22px;font-weight:bold;letter-spacing:1px'>{htmllib.escape(sub['code'])}</p>"
+            f"<p>Valid until <b>{_fmt_date(sub['expires_at'])}</b>.</p>"
+            f"<p>To use it: open the site, tap <b>Go ad-free</b>, paste the code under &quot;Have a premium code?&quot; and tap Apply.</p>"
+            f"<p>Keep this code private. If it is ever shared or lost, contact us and we will issue a new one.</p>")
+    return mailer.send(sub["email"], "Your Edge Analytics premium code", body)
+
+
+def _paid_page(state, status=200, **kw):
+    r = make_response(render_template("paid.html", state=state, **kw), status)
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+@app.post("/api/pay/start")
+def api_pay_start():
+    if not payments.enabled():
+        return jsonify(error="Online payment is not available yet."), 503
+    if _limited("pay:" + _ip(), 10, 3600):
+        return jsonify(error="Too many attempts. Please try again later."), 429
+    d = request.get_json(silent=True) or {}
+    email, plan_key = (d.get("email") or "").strip().lower(), d.get("plan")
+    plan = PLANS.get(plan_key)
+    if not plan or not subs.valid_email(email):
+        return jsonify(error="Enter a valid email and choose a plan."), 400
+    tx_ref = "edge_" + secrets.token_urlsafe(16)
+    try:
+        subs.create_payment(tx_ref, email, plan_key, plan["ngn"], "NGN")
+        link = payments.init_checkout(tx_ref, plan["ngn"], "NGN", email, PUBLIC_URL + "/pay/return",
+                                      "Edge Analytics", f"Premium: {plan_key.replace('_', ' ')}")
+    except payments.PayError as exc:
+        return jsonify(error=str(exc)), 502
+    except Exception:
+        app.logger.exception("pay start failed")
+        return jsonify(error="Could not start the payment."), 500
+    return jsonify(link=link)
+
+
+@app.get("/pay/return")
+def pay_return():
+    """Where Flutterwave sends the customer back. The URL is NOT trusted: we verify with Flutterwave ourselves."""
+    tx_ref, status, tid = request.args.get("tx_ref", ""), request.args.get("status", "").lower(), request.args.get("transaction_id")
+    pay = subs.get_payment(tx_ref)
+    if not pay:
+        return _paid_page("unknown", 404)
+    if status not in ("successful", "completed"):
+        subs.mark_failed(tx_ref)
+        return _paid_page("failed")
+    try:
+        data = payments.verify(tid, tx_ref)
+    except payments.PayError:
+        return _paid_page("pending", 202, tx_ref=tx_ref)  # the webhook may still confirm it
+    if not payments.check_ok(data, pay):
+        return _paid_page("failed")
+    sub, created = subs.fulfill(tx_ref, data.get("id"))
+    if created:
+        _email_code(sub)
+    return _paid_page("ok", code=sub["code"], expires=_fmt_date(sub["expires_at"]), tx_ref=tx_ref, emailed=mailer.enabled())
+
+
+@app.post("/api/pay/webhook")
+def pay_webhook():
+    """Flutterwave -> us. Protects against closed browsers; verified again with the API before any access is given."""
+    if not payments.webhook_ok(request.headers.get("verif-hash")):
+        return jsonify(error="bad signature"), 401
+    data = (request.get_json(silent=True) or {}).get("data") or {}
+    tx_ref = data.get("tx_ref")
+    pay = subs.get_payment(tx_ref) if tx_ref else None
+    if not pay or str(data.get("status", "")).lower() != "successful":
+        return jsonify(ok=True)  # nothing for us to do
+    try:
+        verified = payments.verify(data.get("id"), tx_ref)
+    except payments.PayError:
+        return jsonify(error="verification unavailable"), 502  # Flutterwave retries later
+    if payments.check_ok(verified, pay):
+        sub, created = subs.fulfill(tx_ref, verified.get("id"))
+        if created:
+            _email_code(sub)
+    return jsonify(ok=True)
+
+
+@app.post("/api/restore")
+def api_restore():
+    """Lost your code? Either email + payment reference (shows it now) or email only (we email it to you)."""
+    if _limited("restore:" + _ip(), 8, 3600):
+        return jsonify(error="Too many attempts. Please try again later."), 429
+    d = request.get_json(silent=True) or {}
+    email, tx_ref = (d.get("email") or "").strip().lower(), (d.get("tx_ref") or "").strip()
+    if not subs.valid_email(email):
+        return jsonify(error="Enter a valid email."), 400
+    if tx_ref:
+        pay = subs.get_payment(tx_ref)
+        sub = subs.get_sub(pay["sub_id"]) if pay and pay["email"] == email and pay["status"] == "successful" and pay["sub_id"] else None
+        if sub and sub["status"] == "active" and sub["expires_at"] > subs._iso(subs._now()):
+            return jsonify(code=sub["code"], expires=subs._ts(sub["expires_at"]))
+        return jsonify(error="No active plan found for that email and reference."), 404
+    sub = subs.active_for_email(email)
+    if sub and mailer.enabled():
+        _email_code(sub)
+    return jsonify(ok=True, emailed=mailer.enabled())  # same answer whether or not the email has a plan
+
+
+@app.get("/api/admin/subs")
+def api_admin_subs():
+    if not _is_admin():
+        return jsonify(error="Unauthorized"), 401
+    email = (request.args.get("email") or "").strip().lower()
+    rows = subs.list_for_email(email) if email else []
+    return jsonify(subs=[{k: r[k] for k in ("id", "email", "plan", "tier", "code", "expires_at", "status", "source")} for r in rows])
+
+
+@app.post("/api/admin/subs/<sub_id>/<action>")
+def api_admin_sub_action(sub_id, action):
+    """Owner-only: rotate (new code, old one stops working), revoke, or resend the code email."""
+    if not _is_admin():
+        return jsonify(error="Unauthorized"), 401
+    sub = subs.get_sub(sub_id)
+    if not sub:
+        return jsonify(error="Not found"), 404
+    if action == "rotate":
+        subs.rotate(sub_id)
+        sub = subs.get_sub(sub_id)
+        return jsonify(code=sub["code"], emailed=_email_code(sub) if mailer.enabled() else False)
+    if action == "revoke":
+        subs.revoke(sub_id)
+        return jsonify(ok=True)
+    if action == "resend":
+        return jsonify(emailed=_email_code(sub) if mailer.enabled() else False)
+    return jsonify(error="Unknown action"), 400
 
 
 @app.get("/admin")

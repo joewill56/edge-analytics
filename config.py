@@ -64,3 +64,12 @@ LEAGUES = {
     "soccer_france_ligue_two": {"name": "Ligue 2", "code": "F2"},
 }
 CODE_TO_SPORT = {v["code"]: k for k, v in LEAGUES.items()}
+
+# --- Payments (Flutterwave) & email. Secrets live ONLY in Render's Environment settings, never in GitHub. ---
+FLW_SECRET_KEY = os.getenv("FLW_SECRET_KEY", "").strip()      # test key (FLWSECK_TEST-...) first, live key later
+FLW_SECRET_HASH = os.getenv("FLW_SECRET_HASH", "").strip()    # the webhook secret hash YOU choose in the Flutterwave dashboard
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip().rstrip("/")  # e.g. https://edge-analytics-8z95.onrender.com
+MAIL_PROVIDER = os.getenv("MAIL_PROVIDER", "").strip().lower()  # "resend" or "brevo" (leave empty = no emails)
+MAIL_API_KEY = os.getenv("MAIL_API_KEY", "").strip()
+MAIL_FROM = os.getenv("MAIL_FROM", "").strip()                  # a sender address verified with your mail provider
+MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "Edge Analytics").strip()

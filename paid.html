@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Edge Analytics · Payment</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--mute:#6b7280;--line:#e5e7eb;--h:#2563eb;--good:#059669;--bad:#e11d48}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--ink:#e8eaed;--mute:#98a0ab;--line:#262c36;--h:#60a5fa;--good:#34d399;--bad:#fb7185}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif;padding:16px}
+.card{max-width:480px;margin:24px auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+h2{margin:0 0 6px}.code{font:700 22px/1.2 ui-monospace,monospace;letter-spacing:1px;text-align:center;border:2px dashed var(--good);border-radius:10px;padding:14px;margin:14px 0;word-break:break-all}
+.mute{color:var(--mute);font-size:13px}a.btn,button{display:block;width:100%;box-sizing:border-box;text-align:center;text-decoration:none;font:inherit;background:var(--h);color:#fff;border:0;border-radius:10px;padding:11px;margin-top:10px}
+button.alt{background:transparent;color:var(--h);border:1px solid var(--line)}
+.ok{color:var(--good)}.bad{color:var(--bad)}
+</style></head><body>
+<div class="card">
+{% if state == 'ok' %}
+  <h2 class="ok">Payment confirmed ✓</h2>
+  <div class="mute">Your premium code (unique to you). It is valid until <b>{{ expires }}</b>.</div>
+  <div class="code" id="code">{{ code }}</div>
+  <button id="copy" class="alt">Copy code</button>
+  <a class="btn" id="open" href="/">Open Edge Analytics</a>
+  <p class="mute">This code is already saved on this phone, so premium is active. {% if emailed %}We also emailed it to you.{% else %}Please screenshot or copy it, and keep it private.{% endif %}
+  Payment reference: <b>{{ tx_ref }}</b> (keep it: with your email it lets you recover the code on another phone).</p>
+  <script>
+    try{localStorage.setItem('premium',{{ code|tojson }})}catch(e){}
+    document.getElementById('copy').onclick=function(){navigator.clipboard&&navigator.clipboard.writeText({{ code|tojson }}).then(function(){document.getElementById('copy').textContent='Copied ✓'})};
+  </script>
+{% elif state == 'pending' %}
+  <h2>We are confirming your payment…</h2>
+  <p>We could not confirm it with Flutterwave yet. If you were charged, your code will be ready in a minute or two.</p>
+  <p class="mute">Reference: <b>{{ tx_ref }}</b></p>
+  <button onclick="location.reload()">Check again</button>
+  <a class="btn" href="/" style="background:transparent;color:var(--h);border:1px solid var(--line)">Back to Edge Analytics</a>
+{% elif state == 'failed' %}
+  <h2 class="bad">Payment not completed</h2>
+  <p>No charge was confirmed, so no plan was activated. You can try again anytime.</p>
+  <a class="btn" href="/">Back to Edge Analytics</a>
+{% else %}
+  <h2>Payment not found</h2>
+  <p>We could not find that payment. If you were charged, contact us with your payment receipt.</p>
+  <a class="btn" href="/">Back to Edge Analytics</a>
+{% endif %}
+</div></body></html>
