@@ -23,7 +23,7 @@ import pricing
 import subs
 import track
 from picks import recommend
-from config import ADMIN_TOKEN, ADSTERRA_BANNER_HTML, BLEND_WEIGHT, LEAGUES, PLANS, PUBLIC_URL, UNLOCK_GRACE_HOURS
+from config import ADMIN_TOKEN, ADSTERRA_SNIPPETS, BLEND_WEIGHT, LEAGUES, PLANS, PUBLIC_URL, UNLOCK_GRACE_HOURS
 from features import implied_probs
 
 logging.basicConfig(level=logging.INFO)
@@ -124,6 +124,34 @@ def api_track():
         return jsonify(error=f"Track record unavailable: {exc}"), 500
 
 
+def _ad_dims(html):
+    w = re.search(r"['\"]width['\"]\s*:\s*(\d+)", html)
+    h = re.search(r"['\"]height['\"]\s*:\s*(\d+)", html)
+    return {"w": int(w.group(1)) if w else 0, "h": int(h.group(1)) if h else 300}  # w=0 -> full width (native banner)
+
+
+ADS_META = [_ad_dims(s) for s in ADSTERRA_SNIPPETS]
+
+
+@app.get("/ad-frame")
+def ad_frame():
+    """One ad spot as its own page, shown inside a sandboxed iframe. Having a real address (instead of inline
+    content) lets the ad network see which site it is running on; the sandbox stops ad scripts from touching
+    the main page, its storage, or redirecting it."""
+    if not ADSTERRA_SNIPPETS:
+        return ("", 204)
+    try:
+        snippet = ADSTERRA_SNIPPETS[int(request.args.get("i", 0)) % len(ADSTERRA_SNIPPETS)]
+    except ValueError:
+        snippet = ADSTERRA_SNIPPETS[0]
+    r = make_response('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                      '<style>html,body{margin:0;padding:0;background:transparent}</style></head><body>' + snippet + '</body></html>')
+    r.headers["Content-Security-Policy"] = "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"
+    r.headers["Cache-Control"] = "no-store"
+    r.headers["X-Robots-Tag"] = "noindex"
+    return r
+
+
 def _gate_events(events):
     """Apply the user's access level to a list of matches. Returns (events to send, extra response fields)."""
     prem = gate.premium_info(request.headers.get("X-Premium"))
@@ -141,7 +169,9 @@ def _gate_events(events):
         else:
             shown.append(gate.redact(e))
     extra = {"admin": admin, "premium": bool(prem), "premium_until": prem["expires"] if prem else None,
-             "quota": gate.quota(token), "ad_html": "" if prem else ADSTERRA_BANNER_HTML}
+             "quota": gate.quota(token),
+             # ad spots (size only; the ad code itself is served from /ad-frame). Owner can preview with ?adtest=1
+             "ads": ADS_META if (not prem or (admin and request.args.get("adtest") == "1")) else []}
     return shown, extra
 
 

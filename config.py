@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -36,7 +37,10 @@ SECRET_KEY = os.getenv("SECRET_KEY", "").strip()   # signs unlock + premium toke
 CONTACT_URL = os.getenv("CONTACT_URL", "").strip() # e.g. your Telegram link, shown on the paywall until online payment is live
 UNLOCK_GRACE_HOURS = 3                              # an unlock stays valid until this long after kickoff
 FREE_DAILY_UNLOCKS = int(os.getenv("FREE_DAILY_UNLOCKS", "10"))  # matches a free user can open per day (Nigeria time)
-ADSTERRA_BANNER_HTML = os.getenv("ADSTERRA_BANNER_HTML", "").strip()  # paste your Adsterra banner code; shown to free users only
+# Paste one or more Adsterra banner / native banner codes. Separate several codes with a line containing only ---
+# They rotate between the ad spots. Shown to free users only.
+ADSTERRA_BANNER_HTML = os.getenv("ADSTERRA_BANNER_HTML", "").strip()
+ADSTERRA_SNIPPETS = [s.strip() for s in re.split(r"(?m)^\s*---\s*$", ADSTERRA_BANNER_HTML) if s.strip()]
 PLANS = {                                           # base prices in naira; tier decides what premium unlocks
     "two_weeks": {"days": 14, "ngn": 2000, "tier": "basic"},   # all matches, no ads, small analysis
     "month": {"days": 30, "ngn": 3500, "tier": "full"},        # all matches, no ads, complete analysis
