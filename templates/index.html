@@ -88,6 +88,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const pct=x=>(x*100).toFixed(0)+'%';
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 let tab='up';
+const AT=/[?&]adtest=1/.test(location.search)?'&adtest=1':'';
 const S={lang:'en',cur:'NGN',pricing:null,j:null,ok:true};
 
 /* ---------------- translations (missing keys fall back to English) ---------------- */
@@ -149,18 +150,19 @@ async function unlock(eventId,leagueKey){
   }catch(e){alert(t('unlock_err'))}
 }
 /* Adsterra banners (free users only): each slot is a sandboxed iframe so ad scripts can never redirect or touch the page. */
+let adN=0;
 function mountAds(){
-  const html=S.ad;if(!html)return;
-  const w=+((/['"]width['"]\s*:\s*(\d+)/.exec(html)||[])[1]||300), hgt=+((/['"]height['"]\s*:\s*(\d+)/.exec(html)||[])[1]||250);
+  const ads=S.ad;if(!ads||!ads.length)return;
   document.querySelectorAll('.adslot:not([data-done])').forEach(el=>{
-    const f=document.createElement('iframe');f.width=w;f.height=hgt;f.style.border='0';f.style.maxWidth='100%';
-    f.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');f.setAttribute('loading','lazy');
-    f.srcdoc='<!doctype html><html><body style="margin:0">'+html+'</body></html>';
+    const k=adN++%ads.length,d=ads[k];
+    const f=document.createElement('iframe');f.src='/ad-frame?i='+k;f.height=d.h||300;
+    if(d.w){f.width=d.w;f.style.maxWidth='100%'}else{f.style.width='100%'}
+    f.style.border='0';f.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');f.setAttribute('loading','lazy');f.setAttribute('title','Advertisement');
     el.appendChild(f);el.dataset.done='1';
   });
 }
 function cardsWithAds(j){
-  S.ad=(!j.premium&&j.ad_html)||'';
+  S.ad=(!j.premium||(j.ads&&j.ads.length))&&j.ads&&j.ads.length?j.ads:null;
   const ad=S.ad?`<div class="adslot"><div class="lab">${t('ad_title')}</div></div>`:'';
   return j.events.map((e,i)=>card(e)+(i%3===2?ad:'')).join('')+ad;
 }
@@ -176,7 +178,7 @@ async function runSearch(q){
   if(q.length<2){S.query='';load();return}
   if(tab!=='up'){tab='up';['up','rt','tr'].forEach(k=>$('#t-'+k).classList.toggle('on',k==='up'))}
   $('#view').innerHTML=`<div class="msg">${t('loading')}</div>`;
-  try{S.sj=await (await fetch('/api/search?q='+encodeURIComponent(q),{headers:hdrs()})).json()}catch(e){S.sj={events:[],searched:0}}
+  try{S.sj=await (await fetch('/api/search?q='+encodeURIComponent(q)+AT,{headers:hdrs()})).json()}catch(e){S.sj={events:[],searched:0}}
   renderSearch();
 }
 function renderSearch(){
@@ -324,7 +326,7 @@ async function load(force=false){
     v.innerHTML=r.ratings.length?`<div class="card"><table><tr><th>#</th><th>Team</th><th>Elo</th></tr>${r.ratings.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${esc(x.team)}</td><td>${x.elo}</td></tr>`).join('')}</table></div>`:'<div class="msg">No ratings yet.</div>';
     return;
   }
-  const res=await fetch('/api/predictions?league='+lg+(force?'&force=1':''),{headers:hdrs()});
+  const res=await fetch('/api/predictions?league='+lg+(force?'&force=1':'')+AT,{headers:hdrs()});
   S.j=await res.json();S.ok=res.ok;renderUp();
 }
 
