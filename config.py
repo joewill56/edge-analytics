@@ -40,7 +40,21 @@ FREE_DAILY_UNLOCKS = int(os.getenv("FREE_DAILY_UNLOCKS", "10"))  # matches a fre
 # Paste one or more Adsterra banner / native banner codes. Separate several codes with a line containing only ---
 # They rotate between the ad spots. Shown to free users only.
 ADSTERRA_BANNER_HTML = os.getenv("ADSTERRA_BANNER_HTML", "").strip()
-ADSTERRA_SNIPPETS = [s.strip() for s in re.split(r"(?m)^\s*---\s*$", ADSTERRA_BANNER_HTML) if s.strip()]
+_UNIT_RE = re.compile(
+    r"<script[^>]*>\s*atOptions.*?</script>\s*<script[^>]*\bsrc=[^>]*>\s*</script>"                        # banner: options + invoke script
+    r"|<script[^>]*\bsrc=[^>]*>\s*</script>\s*<div id=[\"']container-[^\"']*[\"']\s*>\s*</div>",          # native banner: script + container
+    re.S | re.I)
+
+
+def _split_ads(raw: str):
+    """Several codes pasted together are separated automatically (a line with only --- also works)."""
+    units = []
+    for part in (p.strip() for p in re.split(r"(?m)^\s*---\s*$", raw) if p.strip()):
+        units += _UNIT_RE.findall(part) or [part]
+    return units
+
+
+ADSTERRA_SNIPPETS = _split_ads(ADSTERRA_BANNER_HTML)
 PLANS = {                                           # base prices in naira; tier decides what premium unlocks
     "two_weeks": {"days": 14, "ngn": 2000, "tier": "basic"},   # all matches, no ads, small analysis
     "month": {"days": 30, "ngn": 3500, "tier": "full"},        # all matches, no ads, complete analysis
@@ -77,3 +91,28 @@ MAIL_PROVIDER = os.getenv("MAIL_PROVIDER", "").strip().lower()  # "resend" or "b
 MAIL_API_KEY = os.getenv("MAIL_API_KEY", "").strip()
 MAIL_FROM = os.getenv("MAIL_FROM", "").strip()                  # a sender address verified with your mail provider
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "Edge Analytics").strip()
+
+# Optional full-screen / pop-up ad code (e.g. Adsterra Social Bar, which serves interstitial overlays with a close button).
+# Paste the script tag(s). It is loaded for FREE users only, right after they unlock a match. It is NOT required to unlock.
+ADSTERRA_POPUP_HTML = os.getenv("ADSTERRA_POPUP_HTML", "").strip()
+
+
+def _parse_scripts(html: str):
+    """Turn pasted <script> tags into [{"src": https-url} | {"code": inline js}] for the page to load (free users only)."""
+    out = []
+    for attrs, body in re.findall(r"<script\b([^>]*)>(.*?)</script>", html or "", re.S | re.I):
+        m = re.search(r"""\bsrc\s*=\s*["']([^"']+)["']""", attrs)
+        if m:
+            u = m.group(1)
+            u = "https:" + u if u.startswith("//") else u
+            if u.startswith("https://"):
+                out.append({"src": u})
+        elif body.strip():
+            out.append({"code": body.strip()})
+    return out
+
+
+POPUP_SCRIPTS = _parse_scripts(ADSTERRA_POPUP_HTML)
+# Monetag (or any network) tag code: loaded on page load for FREE users only.
+MONETAG_TAG_HTML = os.getenv("MONETAG_TAG_HTML", "").strip()
+MONETAG_SCRIPTS = _parse_scripts(MONETAG_TAG_HTML)

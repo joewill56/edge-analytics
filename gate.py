@@ -33,6 +33,13 @@ def _today() -> str:
     return (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%d")
 
 
+def end_of_day_ts() -> float:
+    """The moment today's free unlocks expire: midnight Nigeria time (UTC+1)."""
+    wat = datetime.now(timezone.utc) + timedelta(hours=1)  # wall-clock in Nigeria
+    midnight = (wat + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight.timestamp() - 3600
+
+
 def _load(ser, token):
     if not token:
         return None
