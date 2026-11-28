@@ -59,6 +59,7 @@ a.btn{display:block;text-align:center;text-decoration:none;background:var(--h);c
 header input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .plan .price button{display:block;margin:6px 0 0 auto}
 #sheet a{color:var(--h)}
+main a{color:var(--h)}
 .disc{font-size:11px;color:var(--mute);margin-top:18px}
 </style>
 </head>
@@ -146,7 +147,7 @@ async function unlock(eventId,leagueKey){
     const j=await r.json();
     if(r.status===429){alert(t('limit_hit'));openPaywall();return}
     if(!r.ok)throw new Error(j.error||'');
-    ls.set('access',j.access);S.query?runSearch(S.query):load();
+    ls.set('access',j.access);injectPopup();S.query?runSearch(S.query):load();
   }catch(e){alert(t('unlock_err'))}
 }
 /* Adsterra banners (free users only): each slot is a sandboxed iframe so ad scripts can never redirect or touch the page. */
@@ -155,10 +156,15 @@ function mountAds(){
   const ads=S.ad;if(!ads||!ads.length)return;
   document.querySelectorAll('.adslot:not([data-done])').forEach(el=>{
     const k=adN++%ads.length,d=ads[k];
-    const f=document.createElement('iframe');f.src='/ad-frame?i='+k;f.height=d.h||300;
-    if(d.w){f.width=d.w;f.style.maxWidth='100%'}else{f.style.width='100%'}
-    f.style.border='0';f.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');f.setAttribute('loading','lazy');f.setAttribute('title','Advertisement');
-    el.appendChild(f);el.dataset.done='1';
+    const f=document.createElement('iframe');f.src='/ad-frame?i='+k;f.style.border='0';
+    f.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');f.setAttribute('loading','lazy');f.setAttribute('title','Advertisement');
+    if(d.w){
+      const avail=Math.max(200,el.clientWidth||window.innerWidth-28),sc=Math.min(1,avail/d.w);
+      f.width=d.w;f.height=d.h;f.style.transform='scale('+sc+')';f.style.transformOrigin='0 0';
+      const wrap=document.createElement('div');wrap.style.cssText='width:'+d.w*sc+'px;height:'+d.h*sc+'px;margin:0 auto;overflow:hidden';
+      wrap.appendChild(f);el.appendChild(wrap);
+    }else{f.style.width='100%';f.height=d.h||300;el.appendChild(f)}
+    el.dataset.done='1';
   });
 }
 function cardsWithAds(j){
@@ -166,7 +172,19 @@ function cardsWithAds(j){
   const ad=S.ad?`<div class="adslot"><div class="lab">${t('ad_title')}</div></div>`:'';
   return j.events.map((e,i)=>card(e)+(i%3===2?ad:'')).join('')+ad;
 }
+function addScript(x){const s=document.createElement('script');if(x.src){s.src=x.src;s.async=true}else{s.text=x.code}s.setAttribute('data-cfasync','false');document.body.appendChild(s)}
+let popLoaded=false,tagsLoaded=false;
+/* Pop-up ad code (e.g. Adsterra Social Bar): loaded once, for free users, right after they unlock a match.
+   The unlock never waits for it: nothing is locked behind watching an ad. */
+function injectPopup(){
+  if(popLoaded||!S.popup||!S.popup.length)return;popLoaded=true;S.popup.forEach(addScript);
+}
+/* Network tag code (e.g. Monetag): loaded once on page load, for free users only. */
+function injectTags(){
+  if(tagsLoaded||!S.tags||!S.tags.length)return;tagsLoaded=true;S.tags.forEach(addScript);
+}
 function headerState(j){
+  S.popup=j.popup||[];S.tags=j.tags||[];injectTags();
   $('#goadfree').hidden=!!j.premium;
   $('#badge').textContent=j.admin?'Admin · full access':(j.premium?t('prem_badge',{d:new Date(j.premium_until*1000).toLocaleDateString(S.lang)}):'');
   $('#quota').textContent=(!j.premium&&j.quota)?t('free_left',{n:Math.max(0,j.quota.limit-j.quota.used)}):'';
