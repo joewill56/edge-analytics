@@ -83,6 +83,14 @@ def index():
     return render_template("index.html", leagues=LEAGUES)
 
 
+@app.get("/health")
+def health():
+    """Tiny, instant check for uptime pingers (keeps the free Render service awake). Touches nothing heavy."""
+    r = jsonify(ok=True)
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
 @app.get("/sw.js")
 def service_worker():  # served from the root so it controls the whole site
     r = make_response(send_from_directory(app.static_folder, "sw.js", mimetype="application/javascript"))
